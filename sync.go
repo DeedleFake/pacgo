@@ -8,7 +8,11 @@ func init() {
 			var pkgs []Pkg
 			for _, arg := range args {
 				if arg[0] != '-' {
-					pkgs = append(pkgs, NewPkg(arg))
+					pkg, err := NewPkg(arg)
+					if err != nil {
+						return err
+					}
+					pkgs = append(pkgs, pkg)
 				} else {
 					pacargs = append(pacargs, arg)
 				}
@@ -25,7 +29,11 @@ func init() {
 			var pkgs []Pkg
 			for _, arg := range args {
 				if arg[0] != '-' {
-					pkgs = append(pkgs, NewPkg(arg))
+					pkg, err := NewPkg(arg)
+					if err != nil {
+						return err
+					}
+					pkgs = append(pkgs, pkg)
 				} else {
 					pacargs = append(pacargs, arg)
 				}

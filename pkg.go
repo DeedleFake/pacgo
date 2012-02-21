@@ -1,17 +1,56 @@
 package main
 
+import (
+	"errors"
+)
+
+type InstallFunc func(...string) error
+
 type Pkg interface {
 	Name() string
-	InstallFunc() func(...string) error
+	InstallFunc() InstallFunc
 	Info(...string) error
 }
 
-func NewPkg(name string) Pkg {
-	return &PacmanPkg{
-		name:    name,
-		Dep:     false,
-		Depends: nil,
+func NewPkg(name string) (Pkg, error) {
+	if InPacman(name) {
+		return &PacmanPkg{
+			name:    name,
+			Dep:     false,
+			Depends: nil,
+		}, nil
 	}
+	if InAUR(name) {
+		return &AURPkg{
+			name:    name,
+			Dep:     false,
+			Depends: nil,
+		}, nil
+	}
+
+	return nil, errors.New("No such package: " + name)
+}
+
+func InLocal(name string) bool {
+	err := SilentPacman("-Qi", name)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func InPacman(name string) bool {
+	err := SilentPacman("-Si", name)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func InAUR(name string) bool {
+	return false
 }
 
 func InstallPkgs(args []string, pkgs []Pkg) error {
@@ -52,10 +91,28 @@ func (p *PacmanPkg) Name() string {
 	return p.name
 }
 
-func (p *PacmanPkg) InstallFunc() func(...string) error {
+func (p *PacmanPkg) InstallFunc() InstallFunc {
 	return nil
 }
 
 func (p *PacmanPkg) Info(args ...string) error {
 	return Pacman(append([]string{"-Si"}, append(args, p.Name())...)...)
+}
+
+type AURPkg struct {
+	name    string
+	Dep     bool
+	Depends []Pkg
+}
+
+func (p *AURPkg) Name() string {
+	return p.name
+}
+
+func (p *AURPkg) InstallFunc() InstallFunc {
+	return nil
+}
+
+func (p *AURPkg) Info(args ...string) error {
+	return errors.New("Not implemented.")
 }

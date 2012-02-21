@@ -64,8 +64,34 @@ func init() {
 
 func Pacman(args ...string) error {
 	defer func() {
-		PacmanCmd.Args = nil
+		PacmanCmd = &exec.Cmd{
+			Path: PacmanCmd.Path,
+
+			Stdout: os.Stdout,
+			Stdin:  os.Stdin,
+			Stderr: os.Stderr,
+		}
 	}()
+
+	PacmanCmd.Args = append([]string{PacmanCmd.Path}, args...)
+
+	return PacmanCmd.Run()
+}
+
+func SilentPacman(args ...string) error {
+	defer func() {
+		PacmanCmd = &exec.Cmd{
+			Path: PacmanCmd.Path,
+
+			Stdout: os.Stdout,
+			Stdin:  os.Stdin,
+			Stderr: os.Stderr,
+		}
+	}()
+
+	PacmanCmd.Stdout = nil
+	PacmanCmd.Stdin = nil
+	PacmanCmd.Stderr = nil
 
 	PacmanCmd.Args = append([]string{PacmanCmd.Path}, args...)
 
@@ -74,7 +100,13 @@ func Pacman(args ...string) error {
 
 func Makepkg(args ...string) error {
 	defer func() {
-		MakepkgCmd.Args = nil
+		MakepkgCmd = &exec.Cmd{
+			Path: MakepkgCmd.Path,
+
+			Stdout: os.Stdout,
+			Stdin:  os.Stdin,
+			Stderr: os.Stderr,
+		}
 	}()
 
 	MakepkgCmd.Args = append([]string{MakepkgCmd.Path}, args...)
@@ -88,7 +120,13 @@ func SudoPacman(args ...string) error {
 	}
 
 	defer func() {
-		SudoCmd.Args = nil
+		SudoCmd = &exec.Cmd{
+			Path: SudoCmd.Path,
+
+			Stdout: os.Stdout,
+			Stdin:  os.Stdin,
+			Stderr: os.Stderr,
+		}
 	}()
 
 	SudoCmd.Args = append([]string{SudoCmd.Path, PacmanCmd.Path}, args...)
