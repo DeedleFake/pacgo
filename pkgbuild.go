@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"io"
-	"io/ioutil"
+	//"io/ioutil"
 	"regexp"
 )
 
@@ -22,41 +22,43 @@ type Pkgbuild struct {
 }
 
 func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
-	buf, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
+	return nil, errors.New("Not implemented.")
 
-	name := PkgbuildNameRE.FindAllSubmatch(buf, -1)
-	if name == nil {
-		return nil, errors.New("Couldn't get pkgname from PKGBUILD.")
-	}
+	//buf, err := ioutil.ReadAll(r)
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	deps := PkgbuildDepsRE.FindAllSubmatch(buf, -1)
-	if deps == nil {
-		none := [][]byte{nil, []byte("None")}
-		deps = [][][]byte{
-			none,
-			append([]byte("make"), none...),
-			append([]byte("opt"), none...),
-		}
-	}
+	//name := PkgbuildNameRE.FindAllSubmatch(buf, -1)
+	//if name == nil {
+	//	return nil, errors.New("Couldn't get pkgname from PKGBUILD.")
+	//}
 
-	pb := &Pkgbuild{
-		Name: string(name[0][0]),
-	}
+	//deps := PkgbuildDepsRE.FindAllSubmatch(buf, -1)
+	//if deps == nil {
+	//	none := [][]byte{nil, []byte("None")}
+	//	deps = [][][]byte{
+	//		none,
+	//		append([]byte("make"), none...),
+	//		append([]byte("opt"), none...),
+	//	}
+	//}
 
-	pb.Deps = make([]string, 0, len(deps))
-	for _, set := range deps {
-		switch string(set[0]) {
-		case "make":
-		case "opt":
-		default:
-			for _, dep := range deps[1:] {
-				pb.Deps = append(pb.Deps, string(dep))
-			}
-		}
-	}
+	//pb := &Pkgbuild{
+	//	Name: string(name[0][0]),
+	//}
 
-	return pb, nil
+	//pb.Deps = make([]string, 0, len(deps))
+	//for _, set := range deps {
+	//	switch string(set[0]) {
+	//	case "make":
+	//	case "opt":
+	//	default:
+	//		for _, dep := range deps[1:] {
+	//			pb.Deps = append(pb.Deps, string(dep))
+	//		}
+	//	}
+	//}
+
+	//return pb, nil
 }

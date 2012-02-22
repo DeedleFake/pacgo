@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 const (
@@ -18,7 +19,7 @@ type RPCResult struct {
 }
 
 func AURInfo(name string) (info RPCResult, err error) {
-	rsp, err := http.Get(fmt.Sprintf(RPCURLFmt, "info", name))
+	rsp, err := http.Get(fmt.Sprintf(RPCURLFmt, "info", url.QueryEscape(name)))
 	if err != nil {
 		return
 	}
@@ -37,12 +38,36 @@ func AURInfo(name string) (info RPCResult, err error) {
 	return
 }
 
-func (r RPCResult) Get(k string) string {
+func AURSearch(arg string) (info RPCResult, err error) {
+	rsp, err := http.Get(fmt.Sprintf(RPCURLFmt, "search", url.QueryEscape(arg)))
+	if err != nil {
+		return
+	}
+	defer rsp.Body.Close()
+
+	d := json.NewDecoder(rsp.Body)
+	err = d.Decode(&info)
+	if err != nil {
+		return
+	}
+
+	if info.Type == "error" {
+		return info, errors.New(info.Results.(string))
+	}
+
+	return
+}
+
+func (r RPCResult) GetInfo(k string) string {
 	return r.Results.(map[string]interface{})[k].(string)
 }
 
+func (r RPCResult) GetSearch(i int, k string) string {
+	return r.Results.([]interface{})[i].(map[string]interface{})[k].(string)
+}
+
 func NewAURPkg(info RPCResult) (*AURPkg, error) {
-	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, info.Get("Name")+"/PKGBUILD"))
+	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, info.GetInfo("Name")+"/PKGBUILD"))
 	if err != nil {
 		return nil, err
 	}

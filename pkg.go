@@ -6,11 +6,9 @@ import (
 	"strings"
 )
 
-type InstallFunc func(...string) error
-
 type Pkg interface {
 	Name() string
-	InstallFunc() InstallFunc
+	Install(...string) error
 	Info(...string) error
 }
 
@@ -90,10 +88,8 @@ func (p *PacmanPkg) Name() string {
 	return p.name
 }
 
-func (p *PacmanPkg) InstallFunc() InstallFunc {
-	return func(args ...string) error {
-		return InstallPkgs(args, []Pkg{p})
-	}
+func (p *PacmanPkg) Install(args ...string) error {
+	return InstallPkgs(args, []Pkg{p})
 }
 
 func (p *PacmanPkg) Info(args ...string) error {
@@ -109,16 +105,16 @@ func (p *AURPkg) Name() string {
 	return p.info.Results.(map[string]interface{})["Name"].(string)
 }
 
-func (p *AURPkg) InstallFunc() InstallFunc {
+func (p *AURPkg) Install(args ...string) error {
 	return nil
 }
 
 func (p *AURPkg) Info(args ...string) error {
 	fmt.Printf("Repository     : aur\n")
-	fmt.Printf("Name           : %v\n", p.info.Get("Name"))
-	fmt.Printf("Version        : %v\n", p.info.Get("Version"))
-	fmt.Printf("URL            : %v\n", p.info.Get("URL"))
-	fmt.Printf("Licenses       : %v\n", p.info.Get("License"))
+	fmt.Printf("Name           : %v\n", p.info.GetInfo("Name"))
+	fmt.Printf("Version        : %v\n", p.info.GetInfo("Version"))
+	fmt.Printf("URL            : %v\n", p.info.GetInfo("URL"))
+	fmt.Printf("Licenses       : %v\n", p.info.GetInfo("License"))
 	fmt.Printf("Depends On     : %v\n", strings.Join(p.pkgbuild.Deps, " "))
 	fmt.Println()
 
