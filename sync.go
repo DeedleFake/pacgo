@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -75,18 +74,18 @@ func init() {
 				go func() {
 					installed := ""
 					if InLocal(info.GetSearch(i, "Name")) {
-						installed = " [installed]"
+						installed = " [c4][installed][ce]"
 					}
 
 					ic <- installed
 				}()
 
-				fmt.Printf("aur/%v %v%v\n",
+				Cprintf("[c3]aur/[c1]%v [c2]%v[ce]%v\n",
 					info.GetSearch(i, "Name"),
 					info.GetSearch(i, "Version"),
 					<-ic,
 				)
-				fmt.Printf("    %v\n", info.GetSearch(i, "Description"))
+				Cprintf("    %v\n", info.GetSearch(i, "Description"))
 			}
 
 			return nil

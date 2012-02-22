@@ -43,11 +43,11 @@ func main() {
 	if cmd, ok := cmds[os.Args[1]]; ok {
 		err := cmd.Run(os.Args[2:]...)
 		if err != nil {
-			fmt.Printf("%v: Error: %v\n", os.Args[1], err)
+			Cprintf("[c5]%v: [c7]error:[ce] %v\n", os.Args[1], err)
 			os.Exit(1)
 		}
 	} else {
-		fmt.Printf("Error: No such command: %v\n", os.Args[1])
+		Cprintf("[c7]error:[ce] No such command: [c5]%v[ce]\n", os.Args[1])
 		Usage()
 		os.Exit(2)
 	}

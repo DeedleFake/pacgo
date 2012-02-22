@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -22,20 +21,22 @@ func init() {
 	if err != nil {
 		PacmanPath, err = exec.LookPath("pacman")
 		if err != nil {
-			fmt.Println("Error: Could not find pacman.")
+			Cprintf("[c7]error:[ce] Could not find pacman.\n")
 			os.Exit(1)
 		}
+	} else {
+		setColors()
 	}
 
 	MakepkgPath, err = exec.LookPath("makepkg")
 	if err != nil {
-		fmt.Println("Error: Could not find makepkg.")
+		Cprintf("[c7]error:[ce] Could not find makepkg.\n")
 		os.Exit(1)
 	}
 
 	SudoPath, err = exec.LookPath("sudo")
 	if err != nil {
-		fmt.Println("Warning: Could not find sudo.")
+		Cprintf("[c6]warning:[ce] Could not find sudo.\n")
 	}
 }
 

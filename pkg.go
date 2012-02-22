@@ -106,16 +106,16 @@ func (p *AURPkg) Name() string {
 }
 
 func (p *AURPkg) Install(args ...string) error {
-	return nil
+	return errors.New("Not implemented.")
 }
 
 func (p *AURPkg) Info(args ...string) error {
-	fmt.Printf("Repository     : aur\n")
-	fmt.Printf("Name           : %v\n", p.info.GetInfo("Name"))
-	fmt.Printf("Version        : %v\n", p.info.GetInfo("Version"))
-	fmt.Printf("URL            : %v\n", p.info.GetInfo("URL"))
-	fmt.Printf("Licenses       : %v\n", p.info.GetInfo("License"))
-	fmt.Printf("Depends On     : %v\n", strings.Join(p.pkgbuild.Deps, " "))
+	Cprintf("[c1]Repository     : [c3]aur[ce]\n")
+	Cprintf("[c1]Name           : %v[ce]\n", p.info.GetInfo("Name"))
+	Cprintf("[c1]Version        : [c2]%v[ce]\n", p.info.GetInfo("Version"))
+	Cprintf("[c1]URL            : [c4]%v[ce]\n", p.info.GetInfo("URL"))
+	Cprintf("[c1]Licenses       :[ce] %v\n", p.info.GetInfo("License"))
+	Cprintf("[c1]Depends On     :[ce] %v\n", strings.Join(p.pkgbuild.Deps, " "))
 	fmt.Println()
 
 	return nil
