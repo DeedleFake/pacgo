@@ -116,6 +116,14 @@ func (p *AURPkg) Info(args ...string) error {
 	Cprintf("[c1]URL            : [c4]%v[ce]\n", p.info.GetInfo("URL"))
 	Cprintf("[c1]Licenses       :[ce] %v\n", p.info.GetInfo("License"))
 	Cprintf("[c1]Depends On     :[ce] %v\n", strings.Join(p.pkgbuild.Deps, " "))
+	Cprintf("[c1]Make Depends   :[ce] %v\n", strings.Join(p.pkgbuild.MakeDeps, " "))
+	Cprintf("[c1]Optional Deps  :[ce] %v\n",
+		strings.Join(p.pkgbuild.OptDeps, "\n                 "),
+	)
+	Cprintf("[c1]Conflicts With :[ce] %v\n", strings.Join(p.pkgbuild.Conflicts, " "))
+	Cprintf("[c1]Replaces       :[ce] %v\n", strings.Join(p.pkgbuild.Replaces, " "))
+	Cprintf("[c1]Architecture   :[ce] %v\n", strings.Join(p.pkgbuild.Arch, " "))
+	Cprintf("[c1]Description    :[ce] %v\n", p.info.GetInfo("Description"))
 	fmt.Println()
 
 	return nil
