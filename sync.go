@@ -8,7 +8,7 @@ func init() {
 			var pkgs []Pkg
 			for _, arg := range args {
 				if arg[0] != '-' {
-					pkg, err := NewPkg(arg)
+					pkg, err := NewRemotePkg(arg)
 					if err != nil {
 						return err
 					}
@@ -29,7 +29,7 @@ func init() {
 			var pkgs []Pkg
 			for _, arg := range args {
 				if arg[0] != '-' {
-					pkg, err := NewPkg(arg)
+					pkg, err := NewRemotePkg(arg)
 					if err != nil {
 						return err
 					}

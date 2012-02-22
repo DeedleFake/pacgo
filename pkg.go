@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 )
 
 type InstallFunc func(...string) error
@@ -12,20 +14,14 @@ type Pkg interface {
 	Info(...string) error
 }
 
-func NewPkg(name string) (Pkg, error) {
+func NewRemotePkg(name string) (Pkg, error) {
 	if InPacman(name) {
 		return &PacmanPkg{
-			name:    name,
-			Dep:     false,
-			Depends: nil,
+			name: name,
 		}, nil
 	}
-	if InAUR(name) {
-		return &AURPkg{
-			name:    name,
-			Dep:     false,
-			Depends: nil,
-		}, nil
+	if info, ok := InAUR(name); ok {
+		return NewAURPkg(info)
 	}
 
 	return nil, errors.New("No such package: " + name)
@@ -49,8 +45,13 @@ func InPacman(name string) bool {
 	return true
 }
 
-func InAUR(name string) bool {
-	return false
+func InAUR(name string) (RPCResult, bool) {
+	info, err := AURInfo(name)
+	if err != nil {
+		return info, false
+	}
+
+	return info, true
 }
 
 func InstallPkgs(args []string, pkgs []Pkg) error {
@@ -82,9 +83,7 @@ func InfoPkgs(args []string, pkgs []Pkg) error {
 }
 
 type PacmanPkg struct {
-	name    string
-	Dep     bool
-	Depends []Pkg
+	name string
 }
 
 func (p *PacmanPkg) Name() string {
@@ -92,7 +91,9 @@ func (p *PacmanPkg) Name() string {
 }
 
 func (p *PacmanPkg) InstallFunc() InstallFunc {
-	return nil
+	return func(args ...string) error {
+		return InstallPkgs(args, []Pkg{p})
+	}
 }
 
 func (p *PacmanPkg) Info(args ...string) error {
@@ -100,13 +101,12 @@ func (p *PacmanPkg) Info(args ...string) error {
 }
 
 type AURPkg struct {
-	name    string
-	Dep     bool
-	Depends []Pkg
+	info     RPCResult
+	pkgbuild *Pkgbuild
 }
 
 func (p *AURPkg) Name() string {
-	return p.name
+	return p.info.Results.(map[string]interface{})["Name"].(string)
 }
 
 func (p *AURPkg) InstallFunc() InstallFunc {
@@ -114,5 +114,13 @@ func (p *AURPkg) InstallFunc() InstallFunc {
 }
 
 func (p *AURPkg) Info(args ...string) error {
-	return errors.New("Not implemented.")
+	fmt.Printf("Repository     : aur\n")
+	fmt.Printf("Name           : %v\n", p.info.Get("Name"))
+	fmt.Printf("Version        : %v\n", p.info.Get("Version"))
+	fmt.Printf("URL            : %v\n", p.info.Get("URL"))
+	fmt.Printf("Licenses       : %v\n", p.info.Get("License"))
+	fmt.Printf("Depends On     : %v\n", strings.Join(p.pkgbuild.Deps, " "))
+	fmt.Println()
+
+	return nil
 }

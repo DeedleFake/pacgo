@@ -5,131 +5,88 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 )
 
 var (
-	PacmanCmd  *exec.Cmd
-	MakepkgCmd *exec.Cmd
+	PacmanPath  string
+	MakepkgPath string
 
-	SudoCmd *exec.Cmd
+	SudoPath string
 )
 
 func init() {
-	pac, err := exec.LookPath("pacman-color")
+	var err error
+
+	PacmanPath, err = exec.LookPath("pacman-color")
 	if err != nil {
-		pac, err = exec.LookPath("pacman")
+		PacmanPath, err = exec.LookPath("pacman")
 		if err != nil {
 			fmt.Println("Error: Could not find pacman.")
 			os.Exit(1)
 		}
 	}
 
-	PacmanCmd = &exec.Cmd{
-		Path: pac,
-
-		Stdout: os.Stdout,
-		Stdin:  os.Stdin,
-		Stderr: os.Stderr,
-	}
-
-	mp, err := exec.LookPath("makepkg")
+	MakepkgPath, err = exec.LookPath("makepkg")
 	if err != nil {
 		fmt.Println("Error: Could not find makepkg.")
 		os.Exit(1)
 	}
 
-	MakepkgCmd = &exec.Cmd{
-		Path: mp,
+	SudoPath, err = exec.LookPath("sudo")
+	if err != nil {
+		fmt.Println("Warning: Could not find sudo.")
+	}
+}
+
+func Pacman(args ...string) error {
+	cmd := &exec.Cmd{
+		Path: PacmanPath,
+		Args: append([]string{path.Base(PacmanPath)}, args...),
 
 		Stdout: os.Stdout,
 		Stdin:  os.Stdin,
 		Stderr: os.Stderr,
 	}
 
-	sudo, err := exec.LookPath("sudo")
-	if err != nil {
-		fmt.Println("Warning: Could not find sudo.")
-	}
-
-	if sudo != "" {
-		SudoCmd = &exec.Cmd{
-			Path: sudo,
-
-			Stdout: os.Stdout,
-			Stdin:  os.Stdin,
-			Stderr: os.Stderr,
-		}
-	}
-}
-
-func Pacman(args ...string) error {
-	defer func() {
-		PacmanCmd = &exec.Cmd{
-			Path: PacmanCmd.Path,
-
-			Stdout: os.Stdout,
-			Stdin:  os.Stdin,
-			Stderr: os.Stderr,
-		}
-	}()
-
-	PacmanCmd.Args = append([]string{PacmanCmd.Path}, args...)
-
-	return PacmanCmd.Run()
+	return cmd.Run()
 }
 
 func SilentPacman(args ...string) error {
-	defer func() {
-		PacmanCmd = &exec.Cmd{
-			Path: PacmanCmd.Path,
+	cmd := &exec.Cmd{
+		Path: PacmanPath,
+		Args: append([]string{path.Base(PacmanPath)}, args...),
+	}
 
-			Stdout: os.Stdout,
-			Stdin:  os.Stdin,
-			Stderr: os.Stderr,
-		}
-	}()
-
-	PacmanCmd.Stdout = nil
-	PacmanCmd.Stdin = nil
-	PacmanCmd.Stderr = nil
-
-	PacmanCmd.Args = append([]string{PacmanCmd.Path}, args...)
-
-	return PacmanCmd.Run()
+	return cmd.Run()
 }
 
 func Makepkg(args ...string) error {
-	defer func() {
-		MakepkgCmd = &exec.Cmd{
-			Path: MakepkgCmd.Path,
+	cmd := &exec.Cmd{
+		Path: MakepkgPath,
+		Args: append([]string{path.Base(MakepkgPath)}, args...),
 
-			Stdout: os.Stdout,
-			Stdin:  os.Stdin,
-			Stderr: os.Stderr,
-		}
-	}()
+		Stdout: os.Stdout,
+		Stdin:  os.Stdin,
+		Stderr: os.Stderr,
+	}
 
-	MakepkgCmd.Args = append([]string{MakepkgCmd.Path}, args...)
-
-	return MakepkgCmd.Run()
+	return cmd.Run()
 }
 
 func SudoPacman(args ...string) error {
-	if SudoCmd == nil {
+	if SudoPath == "" {
 		return errors.New("sudo not found.")
 	}
 
-	defer func() {
-		SudoCmd = &exec.Cmd{
-			Path: SudoCmd.Path,
+	cmd := &exec.Cmd{
+		Path: SudoPath,
+		Args: append([]string{path.Base(SudoPath), PacmanPath}, args...),
 
-			Stdout: os.Stdout,
-			Stdin:  os.Stdin,
-			Stderr: os.Stderr,
-		}
-	}()
+		Stdout: os.Stdout,
+		Stdin:  os.Stdin,
+		Stderr: os.Stderr,
+	}
 
-	SudoCmd.Args = append([]string{SudoCmd.Path, PacmanCmd.Path}, args...)
-
-	return SudoCmd.Run()
+	return cmd.Run()
 }
