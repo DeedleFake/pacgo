@@ -29,6 +29,11 @@ func Usage() {
 }
 
 func main() {
+	if os.Getuid() == 0 {
+		Cprintf("[c7]error:[ce] Can't run as root.\n")
+		os.Exit(1)
+	}
+
 	if len(os.Args) == 1 {
 		Usage()
 		os.Exit(2)
