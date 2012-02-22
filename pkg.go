@@ -8,6 +8,12 @@ import (
 
 type Pkg interface {
 	Name() string
+	Version() string
+	Release() int
+	Epoch() int
+
+	IsDevel() bool
+
 	Install(...string) error
 	Info(...string) error
 }
@@ -100,6 +106,22 @@ func (p *PacmanPkg) Name() string {
 	return p.name
 }
 
+func (p *PacmanPkg) Version() string {
+	panic("Not implemented.")
+}
+
+func (p *PacmanPkg) Release() int {
+	panic("Not implemented.")
+}
+
+func (p *PacmanPkg) Epoch() int {
+	panic("Not implemented.")
+}
+
+func (p *PacmanPkg) IsDevel() bool {
+	return false
+}
+
 func (p *PacmanPkg) Install(args ...string) error {
 	return InstallPkgs(args, []Pkg{p})
 }
@@ -117,8 +139,24 @@ func (p *AURPkg) Name() string {
 	return p.info.Results.(map[string]interface{})["Name"].(string)
 }
 
+func (p *AURPkg) Version() string {
+	return p.pkgbuild.Version
+}
+
+func (p *AURPkg) Release() int {
+	return p.pkgbuild.Release
+}
+
+func (p *AURPkg) Epoch() int {
+	return p.pkgbuild.Epoch
+}
+
+func (p *AURPkg) IsDevel() bool {
+	panic("Not implemented.")
+}
+
 func (p *AURPkg) Install(args ...string) error {
-	return errors.New("Not implemented.")
+	panic("Not implemented.")
 }
 
 func (p *AURPkg) Info(args ...string) error {

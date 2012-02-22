@@ -12,6 +12,7 @@ import (
 const pkgbuildScan = `echo "name:$pkgname"
 echo "ver:$pkgver"
 echo "rel:$pkgrel"
+echo "epoch:$epoch"
 
 for ((i=0; i<${#depends[@]}; i++)); do
 	echo "dep:${depends[i]}"
@@ -44,6 +45,7 @@ type Pkgbuild struct {
 	Name      string
 	Version   string
 	Release   int
+	Epoch     int
 	Deps      []string
 	MakeDeps  []string
 	OptDeps   []string
@@ -121,6 +123,16 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 				return nil, errors.New("Bad $pkgrel in PKGBUILD.")
 			}
 			pb.Release = int(rel)
+		case "epoch":
+			if str := string(parts[1]); str == "" {
+				pb.Epoch = 0
+			} else {
+				epoch, err := strconv.ParseInt(str, 10, 0)
+				if err != nil {
+					return nil, errors.New("Bad $epoch in PKGBUILD.")
+				}
+				pb.Epoch = int(epoch)
+			}
 		case "dep":
 			pb.Deps = append(pb.Deps, string(parts[1]))
 		case "makedep":
