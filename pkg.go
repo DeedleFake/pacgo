@@ -61,9 +61,21 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 		}
 	}
 
-	err := SudoPacman(append([]string{"-S"}, append(args, pacpkgs...)...)...)
-	if err != nil {
-		return err
+	if pacpkgs != nil {
+		err := SudoPacman(append([]string{"-S"}, append(args, pacpkgs...)...)...)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, pkg := range pkgs {
+		switch p := pkg.(type) {
+		case *AURPkg:
+			err := p.Install(args...)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

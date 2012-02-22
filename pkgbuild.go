@@ -50,6 +50,8 @@ type Pkgbuild struct {
 	Conflicts []string
 	Replaces  []string
 	Arch      []string
+
+	Raw []byte
 }
 
 func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
@@ -77,12 +79,12 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		return nil, err
 	}
 
-	buf, err := ioutil.ReadAll(r)
+	raw, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = inpipe.Write(buf)
+	_, err = inpipe.Write(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +154,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 	if pb.Arch == nil {
 		return nil, errors.New("PKGBUILD doesn't have an arch.")
 	}
+
+	pb.Raw = raw
 
 	return pb, nil
 }
