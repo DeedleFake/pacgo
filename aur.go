@@ -13,15 +13,21 @@ import (
 )
 
 const (
+	// The URL format for using the AUR's RPC system.
 	RPCURLFmt = "https://aur.archlinux.org/rpc.php?type=%v&arg=%v"
+
+	// The URL format for downloading stuff from the AUR.
 	PKGURLFmt = "https://aur.archlinux.org/packages/%v"
 )
 
+// RPCResult represents a response from the AUR's RPC system.
 type RPCResult struct {
 	Type    string
 	Results interface{}
 }
 
+// AURInfo retrieves the information about a specific package from
+// the AUR. It returns the result and an error, if any.
 func AURInfo(name string) (info RPCResult, err error) {
 	rsp, err := http.Get(fmt.Sprintf(RPCURLFmt, "info", url.QueryEscape(name)))
 	if err != nil {
@@ -42,6 +48,8 @@ func AURInfo(name string) (info RPCResult, err error) {
 	return
 }
 
+// AURSearch retrieves search results from the AUR using the given
+// search. It returns the results and an error, if any.
 func AURSearch(arg string) (info RPCResult, err error) {
 	rsp, err := http.Get(fmt.Sprintf(RPCURLFmt, "search", url.QueryEscape(arg)))
 	if err != nil {
@@ -62,32 +70,21 @@ func AURSearch(arg string) (info RPCResult, err error) {
 	return
 }
 
+// GetInfo gets the given information from an RPCResult returned by
+// AURInfo().
 func (r RPCResult) GetInfo(k string) string {
 	return r.Results.(map[string]interface{})[k].(string)
 }
 
+// GetSearch gets the given information from the given search result
+// from an RPCResult returned by AURSearch().
 func (r RPCResult) GetSearch(i int, k string) string {
 	return r.Results.([]interface{})[i].(map[string]interface{})[k].(string)
 }
 
-func NewAURPkg(info RPCResult) (*AURPkg, error) {
-	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, info.GetInfo("Name")+"/PKGBUILD"))
-	if err != nil {
-		return nil, err
-	}
-	defer rsp.Body.Close()
-
-	pb, err := ParsePkgbuild(rsp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AURPkg{
-		info:     info,
-		pkgbuild: pb,
-	}, nil
-}
-
+// GetSourceTar retrieves the source tar for the named package from
+// the AUR and returns it as a *tar.Reader. It returns the result and
+// nil, or nil and an error, if any.
 func GetSourceTar(name string) (*tar.Reader, error) {
 	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, name+"/"+name+".tar.gz"))
 	if err != nil {

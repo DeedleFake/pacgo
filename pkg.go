@@ -221,6 +221,26 @@ type AURPkg struct {
 	pkgbuild *Pkgbuild
 }
 
+// NewAURPkg returns a *AURPkg using the given info. It returns an
+// the *AURPkg and nil, or nil and an error, if any.
+func NewAURPkg(info RPCResult) (*AURPkg, error) {
+	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, info.GetInfo("Name")+"/PKGBUILD"))
+	if err != nil {
+		return nil, err
+	}
+	defer rsp.Body.Close()
+
+	pb, err := ParsePkgbuild(rsp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AURPkg{
+		info:     info,
+		pkgbuild: pb,
+	}, nil
+}
+
 func (p *AURPkg) Name() string {
 	return p.info.Results.(map[string]interface{})["Name"].(string)
 }
