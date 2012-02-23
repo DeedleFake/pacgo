@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -11,7 +12,7 @@ func init() {
 	RegisterCmd("-S", &Cmd{
 		Help: "Install packages from a repo or the AUR.",
 		Run: func(args ...string) error {
-			pacargs, pkgs, err := ParseSyncArgs(args...)
+			pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
 			if err != nil {
 				return err
 			}
@@ -23,7 +24,7 @@ func init() {
 	RegisterCmd("-Si", &Cmd{
 		Help: "Get info about a remote package.",
 		Run: func(args ...string) error {
-			pacargs, pkgs, err := ParseSyncArgs(args...)
+			pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
 			if err != nil {
 				return err
 			}
@@ -39,7 +40,7 @@ func init() {
 			errc := make(chan error)
 			go func() {
 				var search []string
-				for _, arg := range args {
+				for _, arg := range args[1:] {
 					if arg[0] != '-' {
 						search = append(search, arg)
 					}
@@ -50,7 +51,7 @@ func init() {
 				errc <- err
 			}()
 
-			err := Pacman(append([]string{"-Ss"}, args...)...)
+			err := Pacman(args...)
 			if err != nil {
 				switch e := err.(type) {
 				case *exec.ExitError:
@@ -98,120 +99,148 @@ func init() {
 		},
 	})
 
-	runUpdate := func(arg string) func(...string) error {
-		return func(args ...string) error {
-			pacargs, pkgs, err := ParseSyncArgs(args...)
+	runUpdate := func(args ...string) error {
+		pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
+		if err != nil {
+			return err
+		}
+
+		if pkgs != nil {
+			return errors.New("Using " + args[0] + " with specific packages is not yet supported.")
+		}
+
+		ac := make(chan []Pkg)
+		errc := make(chan error)
+		if pkgs == nil {
+			go func() {
+				pkgs, err := ListLocalPkgs()
+				if err != nil {
+					ac <- nil
+					errc <- err
+					return
+				}
+
+				var aurpkgs []Pkg
+				for _, pkg := range pkgs {
+					if _, ok := InAUR(pkg.Name()); ok {
+						up, err := Update(pkg)
+						if err != nil {
+							ac <- nil
+							errc <- err
+							return
+						}
+						if up != nil {
+							aurpkgs = append(aurpkgs, up)
+						}
+					}
+				}
+
+				ac <- aurpkgs
+				errc <- nil
+			}()
+		}
+
+		if pkgs == nil {
+			err := SudoPacman(append([]string{args[0]}, pacargs...)...)
+			if err != nil {
+				<-ac
+				<-errc
+				return err
+			}
+		} else {
+			err := InstallPkgs(args[1:], pkgs)
+			if err != nil {
+				return err
+			}
+		}
+
+		if pkgs == nil {
+			fmt.Println()
+			Cprintf("[c5]:: [c1]Calculating AUR updates...[ce]\n")
+
+			aurpkgs := <-ac
+			err = <-errc
 			if err != nil {
 				return err
 			}
 
-			if pkgs != nil {
-				return errors.New("Using " + arg + " with specific packages is not yet supported.")
+			fmt.Println()
+			Cprintf("[c6]Targets (%v):[ce]", len(aurpkgs))
+			for _, pkg := range aurpkgs {
+				Cprintf(" %v", pkg.Name())
+			}
+			fmt.Println()
+			answer, err := Caskf(true, "", "Proceed with installation?")
+			if err != nil {
+				return err
+			}
+			if !answer {
+				return nil
 			}
 
-			ac := make(chan []Pkg)
-			errc := make(chan error)
-			if pkgs == nil {
-				go func() {
-					pkgs, err := ListLocalPkgs()
-					if err != nil {
-						ac <- nil
-						errc <- err
-						return
-					}
-
-					var aurpkgs []Pkg
-					for _, pkg := range pkgs {
-						if _, ok := InAUR(pkg.Name()); ok {
-							up, err := Update(pkg)
-							if err != nil {
-								ac <- nil
-								errc <- err
-								return
-							}
-							if up != nil {
-								aurpkgs = append(aurpkgs, up)
-							}
-						}
-					}
-
-					ac <- aurpkgs
-					errc <- nil
-				}()
-			}
-
-			if pkgs == nil {
-				err := SudoPacman(append([]string{arg}, pacargs...)...)
-				if err != nil {
-					<-ac
-					<-errc
-					return err
-				}
-			} else {
-				err := InstallPkgs(args, pkgs)
-				if err != nil {
-					return err
-				}
-			}
-
-			if pkgs == nil {
-				fmt.Println()
-				Cprintf("[c5]:: [c1]Calculating AUR updates...[ce]\n")
-
-				aurpkgs := <-ac
-				err = <-errc
+			for _, pkg := range aurpkgs {
+				lp, err := NewLocalPkg(pkg.Name())
 				if err != nil {
 					return err
 				}
 
-				fmt.Println()
-				Cprintf("[c6]Targets (%v):[ce]", len(aurpkgs))
-				for _, pkg := range aurpkgs {
-					Cprintf(" %v", pkg.Name())
-				}
-				fmt.Println()
-				answer, err := Caskf(true, "", "Proceed with installation?")
+				isdep, err := lp.IsDep()
 				if err != nil {
 					return err
 				}
-				if !answer {
-					return nil
+				asdeps := ""
+				if isdep {
+					asdeps = "--asdeps"
 				}
 
-				for _, pkg := range aurpkgs {
-					lp, err := NewLocalPkg(pkg.Name())
-					if err != nil {
-						return err
-					}
-
-					isdep, err := lp.IsDep()
-					if err != nil {
-						return err
-					}
-					asdeps := ""
-					if isdep {
-						asdeps = "--asdeps"
-					}
-
-					err = pkg.Install(nil, asdeps)
-					if err != nil {
-						return err
-					}
+				err = pkg.Install(nil, asdeps)
+				if err != nil {
+					return err
 				}
 			}
-
-			return nil
 		}
+
+		return nil
 	}
 
 	RegisterCmd("-Su", &Cmd{
 		Help: "Install updates.",
-		Run:  runUpdate("-Su"),
+		Run:  runUpdate,
 	})
 
 	RegisterCmd("-Syu", &Cmd{
 		Help: "Update local package cache and install updates.",
-		Run:  runUpdate("-Syu"),
+		Run:  runUpdate,
+	})
+
+	RegisterCmd("-Scc", &Cmd{
+		Help: "Clean leftover files.",
+		Run: func(args ...string) error {
+			if len(args) != 1 {
+				return UsageError{args[1]}
+			}
+
+			err := SudoPacman(args...)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println()
+			Cprintf("[c1]TmpDir:[ce] %v\n", TmpDir)
+			answer, err := Caskf(false, "", "Do you want to delete TmpDir?")
+			if err != nil {
+				return err
+			}
+			if answer {
+				Cprintf("removing TmpDir...\n")
+				err = os.RemoveAll(TmpDir)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
 	})
 }
 

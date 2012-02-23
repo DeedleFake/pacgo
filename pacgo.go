@@ -1,9 +1,7 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -31,7 +29,7 @@ func MkTmpDir(name string) (string, error) {
 	tmp := filepath.Join(TmpDir, name)
 	err := os.Mkdir(tmp, 0755)
 	if err != nil {
-		return "", errors.New("Failed to create " + tmp)
+		return "", fmt.Errorf("Failed to create %v. Does it already exist?", tmp)
 	}
 
 	return tmp, nil
@@ -74,16 +72,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	tmp, err := ioutil.TempDir("", filepath.Base(os.Args[0]))
+	TmpDir = filepath.Join(os.TempDir(), fmt.Sprintf("%v-%v", filepath.Base(os.Args[0]), os.Getuid()))
+	err := os.MkdirAll(TmpDir, 0755)
 	if err != nil {
-		Cprintf("[c7]error:[ce] Failed to create %v. Does it already exist?", TmpDir)
+		Cprintf("[c7]error:[ce] Failed to create %v.", TmpDir)
 		os.Exit(1)
 	}
-	TmpDir = tmp
-	defer os.RemoveAll(TmpDir)
 
 	if cmd, ok := cmds[os.Args[1]]; ok {
-		err := cmd.Run(os.Args[2:]...)
+		err := cmd.Run(os.Args[1:]...)
 		if err != nil {
 			Cprintf("[c5]%v: [c7]error:[ce] %v\n", os.Args[1], err)
 			if _, ok := err.(UsageError); ok {

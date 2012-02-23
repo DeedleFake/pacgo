@@ -47,7 +47,7 @@ func init() {
 		Help: "Download the PKGBUILDs and other files for AUR packages.",
 		Run: func(args ...string) error {
 			var pkgs []string
-			for _, arg := range args {
+			for _, arg := range args[1:] {
 				if arg[0] == '-' {
 					return UsageError{arg}
 				} else {
