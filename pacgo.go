@@ -45,6 +45,14 @@ func Usage() {
 	}
 }
 
+type UsageError struct {
+	Arg string
+}
+
+func (err UsageError) Error() string {
+	return fmt.Sprintf("Unknown argument: %v", err.Arg)
+}
+
 var (
 	UpdateDevel bool
 )
@@ -78,6 +86,10 @@ func main() {
 		err := cmd.Run(os.Args[2:]...)
 		if err != nil {
 			Cprintf("[c5]%v: [c7]error:[ce] %v\n", os.Args[1], err)
+			if _, ok := err.(UsageError); ok {
+				Usage()
+				os.Exit(2)
+			}
 			os.Exit(1)
 		}
 	} else {

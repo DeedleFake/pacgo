@@ -1,11 +1,9 @@
 package main
 
 import (
-	"archive/tar"
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -184,7 +182,6 @@ func (p *PacmanPkg) Install(dep Pkg, args ...string) error {
 		asdeps = "--asdeps"
 	}
 
-	// Will passing an empty arg work?
 	err := SudoPacman(append([]string{"-S", asdeps}, args...)...)
 	if err != nil {
 		return err
@@ -264,35 +261,9 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 		return err
 	}
 
-	for {
-		hdr, err := tr.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-
-		if hdr.Typeflag == tar.TypeDir {
-			err = os.Mkdir(filepath.Join(tmp, hdr.Name), 0755)
-			if err != nil {
-				return err
-			}
-		} else {
-			file, err := os.OpenFile(filepath.Join(tmp, hdr.Name),
-				os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
-				os.FileMode(hdr.Mode),
-			)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-
-			_, err = io.Copy(file, tr)
-			if err != nil {
-				return err
-			}
-		}
+	err = ExtractTar(tmp, tr)
+	if err != nil {
+		return err
 	}
 
 	if EditPath != "" {
