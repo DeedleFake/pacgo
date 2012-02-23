@@ -88,6 +88,17 @@ func InAUR(name string) (RPCResult, bool) {
 	return info, true
 }
 
+func IsDep(name string) (bool, error) {
+	info, err := PacmanOutput("-Qi", name)
+	if err != nil {
+		return false, err
+	}
+
+	dep := bytes.Contains(info, []byte("Installed as a dependency"))
+
+	return dep, nil
+}
+
 func Update(pkg Pkg) (Pkg, error) {
 	switch p := pkg.(type) {
 	case *PacmanPkg:
@@ -255,32 +266,22 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 		}
 
 		if p.pkgbuild.HasDeps() {
-			var deps []Pkg
-			for _, dep := range p.pkgbuild.Deps {
+			for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
 				if !InLocal(dep) {
 					pkg, err := NewRemotePkg(dep)
 					if err != nil {
 						return err
 					}
-					if _, ok := pkg.(*AURPkg); ok {
-						deps = append(deps, pkg)
+					if ap, ok := pkg.(*AURPkg); ok {
+						err := ap.Install(p, "--asdeps")
+						if err != nil {
+							return err
+						}
 					}
-				}
-			}
-			for _, dep := range deps {
-				if ip, ok := dep.(InstallPkg); ok {
-					err := ip.Install(p, "--asdeps")
-					if err != nil {
-						return err
-					}
-				} else {
-					return fmt.Errorf("Don't know how to install %v.", dep.Name())
 				}
 			}
 		}
-	}
 
-	if cachefile == "" {
 		var answer bool
 		if dep == nil {
 			answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v[c6]?[ce]", p.Name())
@@ -448,13 +449,53 @@ func (p *LocalPkg) Info(args ...string) error {
 	return nil
 }
 
-func IsDep(name string) (bool, error) {
-	info, err := PacmanOutput("-Qi", name)
-	if err != nil {
-		return false, err
+type PkgbuildPkg struct {
+	pkgbuild *Pkgbuild
+}
+
+func NewPkgbuildPkg(pb *Pkgbuild) (*PkgbuildPkg, error) {
+	return &PkgbuildPkg{
+		pkgbuild: pb,
+	}, nil
+}
+
+func (p *PkgbuildPkg) Name() string {
+	return p.pkgbuild.Name
+}
+
+func (p *PkgbuildPkg) Version() (string, error) {
+	epoch := ""
+	if p.pkgbuild.Epoch != 0 {
+		epoch = fmt.Sprintf("%v:", p.pkgbuild.Epoch)
 	}
 
-	dep := bytes.Contains(info, []byte("Installed as a dependency"))
+	return fmt.Sprintf("%v%v-%v", epoch, p.pkgbuild.Version, p.pkgbuild.Release), nil
+}
 
-	return dep, nil
+func (p *PkgbuildPkg) Install(dep Pkg, args ...string) error {
+	if dep != nil {
+		panic("How did that happen?")
+	}
+
+	for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
+		if !InLocal(dep) {
+			pkg, err := NewRemotePkg(dep)
+			if err != nil {
+				return err
+			}
+			if ap, ok := pkg.(*AURPkg); ok {
+				err := ap.Install(p, "--asdeps")
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	err := MakepkgIn("", args...)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

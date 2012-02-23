@@ -27,9 +27,9 @@ var (
 
 func MkTmpDir(name string) (string, error) {
 	tmp := filepath.Join(TmpDir, name)
-	err := os.Mkdir(tmp, 0755)
+	err := os.MkdirAll(tmp, 0755)
 	if err != nil {
-		return tmp, fmt.Errorf("Failed to create %v. Does it already exist?", tmp)
+		return tmp, fmt.Errorf("Failed to create %v.", tmp)
 	}
 
 	return tmp, nil
