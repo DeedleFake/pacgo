@@ -2,19 +2,40 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
+var (
+	VersionRE = regexp.MustCompile(`Version\s+:\s+(.*)`)
+)
+
+func Newer(ver1, ver2 string) (bool, error) {
+	out, err := VercmpOutput(ver1, ver2)
+	if err != nil {
+		return false, err
+	}
+	out = bytes.TrimSpace(out)
+
+	switch string(out) {
+	case "-1", "0":
+		return false, nil
+	case "1":
+		return true, nil
+	}
+
+	panic("Bad vercmp output: " + string(out))
+}
+
 type Pkg interface {
 	Name() string
-	Version() string
-	Release() int
-	Epoch() int
+	Version() (string, error)
 
 	IsDevel() bool
 
@@ -110,16 +131,18 @@ func (p *PacmanPkg) Name() string {
 	return p.name
 }
 
-func (p *PacmanPkg) Version() string {
-	panic("Not implemented.")
-}
+func (p *PacmanPkg) Version() (string, error) {
+	info, err := PacmanOutput("-Si", p.Name())
+	if err != nil {
+		return "", err
+	}
 
-func (p *PacmanPkg) Release() int {
-	panic("Not implemented.")
-}
+	ver := VersionRE.FindSubmatch(info)
+	if ver == nil {
+		return "", errors.New("Couldn't determine version.")
+	}
 
-func (p *PacmanPkg) Epoch() int {
-	panic("Not implemented.")
+	return string(ver[1]), nil
 }
 
 func (p *PacmanPkg) IsDevel() bool {
@@ -154,16 +177,8 @@ func (p *AURPkg) Name() string {
 	return p.info.Results.(map[string]interface{})["Name"].(string)
 }
 
-func (p *AURPkg) Version() string {
-	return p.pkgbuild.Version
-}
-
-func (p *AURPkg) Release() int {
-	return p.pkgbuild.Release
-}
-
-func (p *AURPkg) Epoch() int {
-	return p.pkgbuild.Epoch
+func (p *AURPkg) Version() (string, error) {
+	return p.info.GetInfo("Version"), nil
 }
 
 func (p *AURPkg) IsDevel() bool {
@@ -319,6 +334,39 @@ func (p *AURPkg) Info(args ...string) error {
 	Cprintf("[c1]Architecture   :[ce] %v\n", strings.Join(p.pkgbuild.Arch, " "))
 	Cprintf("[c1]Description    :[ce] %v\n", p.info.GetInfo("Description"))
 	fmt.Println()
+
+	return nil
+}
+
+type LocalPkg struct {
+	name string
+}
+
+func NewLocalPkg(name string) (*LocalPkg, error) {
+	panic("Not implemented.")
+}
+
+func (p *LocalPkg) Name() string {
+	return p.name
+}
+
+func (p *LocalPkg) Version() (string, error) {
+	panic("Not implemented.")
+}
+
+func (p *LocalPkg) IsDevel() bool {
+	panic("Not implemented.")
+}
+
+func (p *LocalPkg) Install(...string) error {
+	panic("Not implemented.")
+}
+
+func (p *LocalPkg) Info() error {
+	err := Pacman("-Qi", p.Name())
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

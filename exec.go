@@ -10,6 +10,7 @@ import (
 var (
 	PacmanPath  string
 	MakepkgPath string
+	VercmpPath  string
 
 	SudoPath string
 
@@ -33,6 +34,12 @@ func init() {
 	MakepkgPath, err = exec.LookPath("makepkg")
 	if err != nil {
 		Cprintf("[c7]error:[ce] Could not find makepkg.\n")
+		os.Exit(1)
+	}
+
+	VercmpPath, err = exec.LookPath("vercmp")
+	if err != nil {
+		Cprintf("[c7]error:[ce] Could not find vercmp.\n")
 		os.Exit(1)
 	}
 
@@ -73,6 +80,15 @@ func SilentPacman(args ...string) error {
 	return cmd.Run()
 }
 
+func PacmanOutput(args ...string) ([]byte, error) {
+	cmd := &exec.Cmd{
+		Path: PacmanPath,
+		Args: append([]string{path.Base(PacmanPath)}, args...),
+	}
+
+	return cmd.Output()
+}
+
 func MakepkgIn(dir string, args ...string) error {
 	cmd := &exec.Cmd{
 		Path: MakepkgPath,
@@ -85,6 +101,15 @@ func MakepkgIn(dir string, args ...string) error {
 	}
 
 	return cmd.Run()
+}
+
+func VercmpOutput(args ...string) ([]byte, error) {
+	cmd := &exec.Cmd{
+		Path: VercmpPath,
+		Args: append([]string{path.Base(VercmpPath)}, args...),
+	}
+
+	return cmd.Output()
 }
 
 func SudoPacman(args ...string) error {

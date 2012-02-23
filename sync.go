@@ -53,9 +53,13 @@ func init() {
 				switch e := err.(type) {
 				case *exec.ExitError:
 					if e.ExitStatus() != 1 {
+						<-sc
+						<-errc
 						return err
 					}
 				default:
+					<-sc
+					<-errc
 					return err
 				}
 			}
@@ -90,6 +94,105 @@ func init() {
 
 			return nil
 		},
+	})
+
+	runUpdate := func(arg string) func(...string) error {
+		return func(args ...string) error {
+			pacargs, pkgs, err := ParseSyncArgs(args...)
+			if err != nil {
+				return err
+			}
+
+			ac := make(chan []Pkg)
+			errc := make(chan error)
+			if pkgs == nil {
+				go func() {
+					pkgs, err := ListPackages()
+					if err != nil {
+						ac <- nil
+						errc <- err
+						return
+					}
+
+					var aurpkgs []Pkg
+					for _, pkg := range pkgs {
+						if info, ok := InAUR(pkg); ok {
+							ver2, err := pkg.Version()
+							if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
+							newer, err := Newer(info.GetInfo("Version"), ver2)
+							if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
+							if newer {
+								p, err := NewAURPkg(info)
+								if err != nil {
+									errc <- err
+								}
+								aurpkgs = append(aurpkgs, p)
+							}
+						}
+					}
+
+					ac <- aurpkgs
+					errc <- nil
+				}()
+			}
+
+			if pkgs == nil {
+				err := SudoPacman(append([]string{arg}, pacargs...)...)
+				if err != nil {
+					<-ac
+					<-errc
+					return err
+				}
+			} else {
+				err := InstallPkgs(args, pkgs)
+				if err != nil {
+					return err
+				}
+			}
+
+			if pkgs == nil {
+				aurpkgs := <-ac
+				err = <-errc
+				if err != nil {
+					return err
+				}
+
+				for _, pkg := range aurpkgs {
+					lp, err := NewLocalPkg(pkg.Name())
+					if err != nil {
+						return err
+					}
+
+					asdeps := ""
+					if lp.IsDep() {
+						asdeps = "--asdeps"
+					}
+
+					err := pkg.Install(nil, asdeps)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	RegisterCmd("-Su", &Cmd{
+		Help: "Install updates.",
+		Run:  runUpdate("-Su"),
+	})
+
+	RegisterCmd("-Syu", &Cmd{
+		Help: "Update local package cache and install updates.",
+		Run:  runUpdate("-Syu"),
 	})
 }
 
