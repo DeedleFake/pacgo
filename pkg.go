@@ -37,8 +37,6 @@ type Pkg interface {
 	Name() string
 	Version() (string, error)
 
-	IsDevel() bool
-
 	Install(Pkg, ...string) error
 	Info(...string) error
 }
@@ -81,6 +79,41 @@ func InAUR(name string) (RPCResult, bool) {
 	}
 
 	return info, true
+}
+
+func Update(pkg Pkg) (Pkg, error) {
+	switch p := pkg.(type) {
+	case *PacmanPkg:
+		return nil, errors.New("Unable to tell if update is available.")
+	case *AURPkg:
+		if (UpdateDevel) && (p.IsDevel()) {
+			return pkg, nil
+		}
+		return nil, nil
+	case *LocalPkg:
+		r, err := NewRemotePkg(p.Name())
+		if err != nil {
+			return nil, err
+		}
+		rver, err := r.Version()
+		if err != nil {
+			return nil, err
+		}
+		pver, err := p.Version()
+		if err != nil {
+			return nil, err
+		}
+		up, err := Newer(rver, pver)
+		if err != nil {
+			return nil, err
+		}
+		if up {
+			return r, nil
+		}
+		return nil, nil
+	}
+
+	panic("Should never reach this point.")
 }
 
 func InstallPkgs(args []string, pkgs []Pkg) error {
@@ -142,11 +175,7 @@ func (p *PacmanPkg) Version() (string, error) {
 		return "", errors.New("Couldn't determine version.")
 	}
 
-	return string(ver[1]), nil
-}
-
-func (p *PacmanPkg) IsDevel() bool {
-	return false
+	return string(bytes.TrimSpace(ver[1])), nil
 }
 
 func (p *PacmanPkg) Install(dep Pkg, args ...string) error {
@@ -181,10 +210,6 @@ func (p *AURPkg) Version() (string, error) {
 	return p.info.GetInfo("Version"), nil
 }
 
-func (p *AURPkg) IsDevel() bool {
-	panic("Not implemented.")
-}
-
 func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 	if p.pkgbuild.HasDeps() {
 		var deps []Pkg
@@ -209,12 +234,12 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 
 	var answer bool
 	if dep == nil {
-		answer, err = Caskf(true, "[c6]Install [c5]%v[c6]?[ce]", p.Name())
+		answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v[c6]?[ce]", p.Name())
 		if err != nil {
 			return
 		}
 	} else {
-		answer, err = Caskf(true, "[c6]Install [c5]%v [c6]as a dependency for [c5]%v[c6]?[ce]",
+		answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v [c6]as a dependency for [c5]%v[c6]?[ce]",
 			p.Name(),
 			dep.Name(),
 		)
@@ -272,7 +297,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 
 	if EditPath != "" {
 		for {
-			answer, err := Caskf(false, "[c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
+			answer, err := Caskf(false, "[c6]", "[c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
 			if err != nil {
 				return err
 			}
@@ -338,12 +363,42 @@ func (p *AURPkg) Info(args ...string) error {
 	return nil
 }
 
+func (p *AURPkg) IsDevel() bool {
+	panic("Not implemented.")
+}
+
 type LocalPkg struct {
 	name string
 }
 
 func NewLocalPkg(name string) (*LocalPkg, error) {
-	panic("Not implemented.")
+	if !InLocal(name) {
+		return nil, errors.New(name + " is not installed.")
+	}
+
+	return &LocalPkg{
+		name: name,
+	}, nil
+}
+
+func ListLocalPkgs() ([]*LocalPkg, error) {
+	list, err := PacmanOutput("-Qqm")
+	if err != nil {
+		return nil, err
+	}
+	list = bytes.TrimSpace(list)
+
+	var pkgs []*LocalPkg
+	lines := bytes.Split(list, []byte("\n"))
+	for _, line := range lines {
+		pkg, err := NewLocalPkg(string(line))
+		if err != nil {
+			return nil, err
+		}
+		pkgs = append(pkgs, pkg)
+	}
+
+	return pkgs, nil
 }
 
 func (p *LocalPkg) Name() string {
@@ -351,22 +406,39 @@ func (p *LocalPkg) Name() string {
 }
 
 func (p *LocalPkg) Version() (string, error) {
+	info, err := PacmanOutput("-Qi", p.Name())
+	if err != nil {
+		return "", err
+	}
+
+	ver := VersionRE.FindSubmatch(info)
+	if ver == nil {
+		return "", errors.New("Couldn't determine version.")
+	}
+
+	return string(bytes.TrimSpace(ver[1])), nil
+}
+
+func (p *LocalPkg) Install(Pkg, ...string) error {
 	panic("Not implemented.")
 }
 
-func (p *LocalPkg) IsDevel() bool {
-	panic("Not implemented.")
-}
-
-func (p *LocalPkg) Install(...string) error {
-	panic("Not implemented.")
-}
-
-func (p *LocalPkg) Info() error {
-	err := Pacman("-Qi", p.Name())
+func (p *LocalPkg) Info(args ...string) error {
+	err := Pacman(append(append([]string{"-Qi"}, args...), p.Name())...)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (p *LocalPkg) IsDep() (bool, error) {
+	info, err := PacmanOutput("-Qi", p.Name())
+	if err != nil {
+		return false, err
+	}
+
+	dep := bytes.Contains(info, []byte("Installed as a dependency"))
+
+	return dep, nil
 }

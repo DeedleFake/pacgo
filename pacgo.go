@@ -45,6 +45,10 @@ func Usage() {
 	}
 }
 
+var (
+	UpdateDevel bool
+)
+
 func main() {
 	if os.Getuid() == 0 {
 		Cprintf("[c7]error:[ce] Can't run as root.\n")

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -103,11 +105,15 @@ func init() {
 				return err
 			}
 
+			if pkgs != nil {
+				return errors.New("Using " + arg + " with specific packages is not yet supported.")
+			}
+
 			ac := make(chan []Pkg)
 			errc := make(chan error)
 			if pkgs == nil {
 				go func() {
-					pkgs, err := ListPackages()
+					pkgs, err := ListLocalPkgs()
 					if err != nil {
 						ac <- nil
 						errc <- err
@@ -116,25 +122,15 @@ func init() {
 
 					var aurpkgs []Pkg
 					for _, pkg := range pkgs {
-						if info, ok := InAUR(pkg); ok {
-							ver2, err := pkg.Version()
+						if _, ok := InAUR(pkg.Name()); ok {
+							up, err := Update(pkg)
 							if err != nil {
 								ac <- nil
 								errc <- err
 								return
 							}
-							newer, err := Newer(info.GetInfo("Version"), ver2)
-							if err != nil {
-								ac <- nil
-								errc <- err
-								return
-							}
-							if newer {
-								p, err := NewAURPkg(info)
-								if err != nil {
-									errc <- err
-								}
-								aurpkgs = append(aurpkgs, p)
+							if up != nil {
+								aurpkgs = append(aurpkgs, up)
 							}
 						}
 					}
@@ -159,10 +155,27 @@ func init() {
 			}
 
 			if pkgs == nil {
+				fmt.Println()
+				Cprintf("[c5]:: [c1]Calculating AUR updates...[ce]\n")
+
 				aurpkgs := <-ac
 				err = <-errc
 				if err != nil {
 					return err
+				}
+
+				fmt.Println()
+				Cprintf("[c6]Targets (%v):[ce]", len(aurpkgs))
+				for _, pkg := range aurpkgs {
+					Cprintf(" %v", pkg.Name())
+				}
+				fmt.Println()
+				answer, err := Caskf(true, "", "Proceed with installation?")
+				if err != nil {
+					return err
+				}
+				if !answer {
+					return nil
 				}
 
 				for _, pkg := range aurpkgs {
@@ -171,17 +184,23 @@ func init() {
 						return err
 					}
 
+					isdep, err := lp.IsDep()
+					if err != nil {
+						return err
+					}
 					asdeps := ""
-					if lp.IsDep() {
+					if isdep {
 						asdeps = "--asdeps"
 					}
 
-					err := pkg.Install(nil, asdeps)
+					err = pkg.Install(nil, asdeps)
 					if err != nil {
 						return err
 					}
 				}
 			}
+
+			return nil
 		}
 	}
 

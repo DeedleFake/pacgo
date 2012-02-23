@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"exp/terminal"
 	"fmt"
 	"os"
@@ -51,21 +52,21 @@ func Cprintf(s string, args ...interface{}) (int, error) {
 	return fmt.Print(Colorize(fmt.Sprintf(s, args...)))
 }
 
-func Caskf(def bool, s string, args ...interface{}) (bool, error) {
-	q := " [c6][y/N][ce] "
+func Caskf(def bool, col string, s string, args ...interface{}) (bool, error) {
+	q := fmt.Sprintf(" %v[y/N][ce] ", col)
 	if def {
-		q = " [c6][Y/n][ce] "
+		q = fmt.Sprintf(" %v[Y/n][ce] ", col)
 	}
 
 	Cprintf(s+q, args...)
 
-	buf := make([]byte, 1)
-	_, err := os.Stdin.Read(buf)
+	bufin := bufio.NewReader(os.Stdin)
+	c, err := bufin.ReadByte()
 	if err != nil {
 		return false, err
 	}
 
-	switch unicode.ToLower(rune(buf[0])) {
+	switch unicode.ToLower(rune(c)) {
 	case 'y':
 		def = true
 	case 'n':
