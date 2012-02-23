@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"runtime"
 	"strconv"
 )
 
@@ -182,4 +183,28 @@ func (p *Pkgbuild) HasDeps() bool {
 	}
 
 	return true
+}
+
+func (p *Pkgbuild) LocalArch() string {
+	if (len(p.Arch) == 1) && (p.Arch[0] == "any") {
+		return "any"
+	}
+
+	var find string
+	switch runtime.GOARCH {
+	case "386":
+		find = "i686"
+	case "amd64":
+		find = "x86_64"
+	default:
+		return ""
+	}
+
+	for _, a := range p.Arch {
+		if a == find {
+			return find
+		}
+	}
+
+	return ""
 }

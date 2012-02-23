@@ -227,7 +227,7 @@ func init() {
 
 			fmt.Println()
 			Cprintf("[c1]TmpDir:[ce] %v\n", TmpDir)
-			answer, err := Caskf(false, "", "Do you want to delete TmpDir?")
+			answer, err := Caskf(false, "", "Do you want to remove TmpDir?")
 			if err != nil {
 				return err
 			}

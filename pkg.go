@@ -208,99 +208,131 @@ func (p *AURPkg) Version() (string, error) {
 }
 
 func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
-	if p.pkgbuild.HasDeps() {
-		var deps []Pkg
-		for _, dep := range p.pkgbuild.Deps {
-			if !InLocal(dep) {
-				pkg, err := NewRemotePkg(dep)
-				if err != nil {
-					return err
-				}
-				if _, ok := pkg.(*AURPkg); ok {
-					deps = append(deps, pkg)
-				}
-			}
-		}
-		for _, dep := range deps {
-			err := dep.Install(p, "--asdeps")
-			if err != nil {
-				return err
-			}
-		}
-	}
+	tmp, direrr := MkTmpDir(p.Name())
 
-	var answer bool
-	if dep == nil {
-		answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v[c6]?[ce]", p.Name())
-		if err != nil {
-			return
-		}
-	} else {
-		answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v [c6]as a dependency for [c5]%v[c6]?[ce]",
+	cachefile := filepath.Join(tmp,
+		p.Name(),
+		fmt.Sprintf("%v-%v-%v.pkg.tar.xz",
 			p.Name(),
-			dep.Name(),
-		)
-		if err != nil {
-			return
-		}
-	}
-	if !answer {
-		return nil
-	}
-
-	Cprintf("[c2]==> [c1]Installing [c5]%v [c1]from the [c3]AUR[c1].[ce]\n", p.Name())
-
-	tmp, err := MkTmpDir(p.Name())
-	if err != nil {
-		return errors.New("Failed to create temporary dir.")
-	}
-	defer os.RemoveAll(tmp)
-
-	tr, err := GetSourceTar(p.Name())
-	if err != nil {
-		return err
-	}
-
-	err = ExtractTar(tmp, tr)
-	if err != nil {
-		return err
-	}
-
-	if EditPath != "" {
-		for {
-			answer, err := Caskf(false, "[c6]", "[c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
+			p.info.GetInfo("Version"),
+			p.pkgbuild.LocalArch(),
+		),
+	)
+	if _, err := os.Stat(cachefile); err != nil {
+		cachefile = ""
+	} else {
+		var answer bool
+		if dep == nil {
+			answer, err = Caskf(true, "[c6]", "[c6]Found cached package for [c5]%v[c6]. Install?[ce]", p.Name())
 			if err != nil {
 				return err
 			}
+		} else {
+			answer, err = Caskf(true, "[c6]", "[c6]Found cached package for [c5]%v[c6]. Install as dependency for [c5]%v[c6]?[ce]", p.Name(), dep.Name())
+			if err != nil {
+				return err
+			}
+		}
+		if !answer {
+			cachefile = ""
+		}
+	}
 
-			if answer {
-				err := Edit(filepath.Join(tmp, p.Name(), "PKGBUILD"))
+	if cachefile == "" {
+		if direrr != nil {
+			return direrr
+		}
+
+		if p.pkgbuild.HasDeps() {
+			var deps []Pkg
+			for _, dep := range p.pkgbuild.Deps {
+				if !InLocal(dep) {
+					pkg, err := NewRemotePkg(dep)
+					if err != nil {
+						return err
+					}
+					if _, ok := pkg.(*AURPkg); ok {
+						deps = append(deps, pkg)
+					}
+				}
+			}
+			for _, dep := range deps {
+				err := dep.Install(p, "--asdeps")
 				if err != nil {
 					return err
 				}
-			} else {
-				break
 			}
 		}
+	}
 
-		install := filepath.Join(tmp, p.Name(), p.Name()+".install")
-		if _, err := os.Stat(install); err == nil {
+	if cachefile == "" {
+		var answer bool
+		if dep == nil {
+			answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v[c6]?[ce]", p.Name())
+			if err != nil {
+				return
+			}
+		} else {
+			answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v [c6]as a dependency for [c5]%v[c6]?[ce]",
+				p.Name(),
+				dep.Name(),
+			)
+			if err != nil {
+				return
+			}
+		}
+		if !answer {
+			return nil
+		}
+
+		Cprintf("[c2]==> [c1]Installing [c5]%v [c1]from the [c3]AUR[c1].[ce]\n", p.Name())
+
+		tr, err := GetSourceTar(p.Name())
+		if err != nil {
+			return err
+		}
+
+		err = ExtractTar(tmp, tr)
+		if err != nil {
+			return err
+		}
+
+		if EditPath != "" {
 			for {
-				answer, err := Caskf(false, "[c6]Edit [c5]%v [c6]using [c5]%v?[ce]",
-					filepath.Base(install),
-					filepath.Base(EditPath),
-				)
+				answer, err := Caskf(false, "[c6]", "[c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
 				if err != nil {
 					return err
 				}
 
 				if answer {
-					err := Edit(filepath.Join(tmp, p.Name(), install))
+					err := Edit(filepath.Join(tmp, p.Name(), "PKGBUILD"))
 					if err != nil {
 						return err
 					}
 				} else {
 					break
+				}
+			}
+
+			install := filepath.Join(tmp, p.Name(), p.Name()+".install")
+			if _, err := os.Stat(install); err == nil {
+				for {
+					answer, err := Caskf(false, "[c6]Edit [c5]%v [c6]using [c5]%v?[ce]",
+						filepath.Base(install),
+						filepath.Base(EditPath),
+					)
+					if err != nil {
+						return err
+					}
+
+					if answer {
+						err := Edit(filepath.Join(tmp, p.Name(), install))
+						if err != nil {
+							return err
+						}
+					} else {
+						break
+					}
 				}
 			}
 		}
@@ -310,6 +342,8 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 	if err != nil {
 		return err
 	}
+
+	os.RemoveAll(tmp)
 
 	return nil
 }
