@@ -1,8 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
 type Cmd struct {
@@ -18,6 +21,20 @@ func RegisterCmd(arg string, cmd *Cmd) {
 	}
 
 	cmds[arg] = cmd
+}
+
+var (
+	TmpDir string
+)
+
+func MkTmpDir(name string) (string, error) {
+	tmp := filepath.Join(TmpDir, name)
+	err := os.Mkdir(tmp, 0755)
+	if err != nil {
+		return "", errors.New("Failed to create " + tmp)
+	}
+
+	return tmp, nil
 }
 
 func Usage() {
@@ -44,6 +61,14 @@ func main() {
 		Usage()
 		os.Exit(0)
 	}
+
+	tmp, err := ioutil.TempDir("", filepath.Base(os.Args[0]))
+	if err != nil {
+		Cprintf("[c7]error:[ce] Failed to create %v. Does it already exist?", TmpDir)
+		os.Exit(1)
+	}
+	TmpDir = tmp
+	defer os.RemoveAll(TmpDir)
 
 	if cmd, ok := cmds[os.Args[1]]; ok {
 		err := cmd.Run(os.Args[2:]...)

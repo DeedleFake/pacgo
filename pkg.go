@@ -1,8 +1,12 @@
 package main
 
 import (
+	"archive/tar"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -14,7 +18,7 @@ type Pkg interface {
 
 	IsDevel() bool
 
-	Install(...string) error
+	Install(Pkg, ...string) error
 	Info(...string) error
 }
 
@@ -77,7 +81,7 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 	for _, pkg := range pkgs {
 		switch p := pkg.(type) {
 		case *AURPkg:
-			err := p.Install(args...)
+			err := p.Install(nil, args...)
 			if err != nil {
 				return err
 			}
@@ -122,8 +126,19 @@ func (p *PacmanPkg) IsDevel() bool {
 	return false
 }
 
-func (p *PacmanPkg) Install(args ...string) error {
-	return InstallPkgs(args, []Pkg{p})
+func (p *PacmanPkg) Install(dep Pkg, args ...string) error {
+	asdeps := ""
+	if dep != nil {
+		asdeps = "--asdeps"
+	}
+
+	// Will passing an empty arg work?
+	err := SudoPacman(append([]string{"-S", asdeps}, args...)...)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *PacmanPkg) Info(args ...string) error {
@@ -155,8 +170,137 @@ func (p *AURPkg) IsDevel() bool {
 	panic("Not implemented.")
 }
 
-func (p *AURPkg) Install(args ...string) error {
-	panic("Not implemented.")
+func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
+	if p.pkgbuild.HasDeps() {
+		var deps []Pkg
+		for _, dep := range p.pkgbuild.Deps {
+			if !InLocal(dep) {
+				pkg, err := NewRemotePkg(dep)
+				if err != nil {
+					return err
+				}
+				if _, ok := pkg.(*AURPkg); ok {
+					deps = append(deps, pkg)
+				}
+			}
+		}
+		for _, dep := range deps {
+			err := dep.Install(p, "--asdeps")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	var answer bool
+	if dep == nil {
+		answer, err = Caskf(true, "[c6]Install [c5]%v[c6]?[ce]", p.Name())
+		if err != nil {
+			return
+		}
+	} else {
+		answer, err = Caskf(true, "[c6]Install [c5]%v [c6]as a dependency for [c5]%v[c6]?[ce]",
+			p.Name(),
+			dep.Name(),
+		)
+		if err != nil {
+			return
+		}
+	}
+	if !answer {
+		return nil
+	}
+
+	Cprintf("[c2]==> [c1]Installing [c5]%v [c1]from the [c3]AUR[c1].[ce]\n", p.Name())
+
+	tmp, err := MkTmpDir(p.Name())
+	if err != nil {
+		return errors.New("Failed to create temporary dir.")
+	}
+	defer os.RemoveAll(tmp)
+
+	tr, err := GetSourceTar(p.Name())
+	if err != nil {
+		return err
+	}
+
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if hdr.Typeflag == tar.TypeDir {
+			err = os.Mkdir(filepath.Join(tmp, hdr.Name), 0755)
+			if err != nil {
+				return err
+			}
+		} else {
+			file, err := os.OpenFile(filepath.Join(tmp, hdr.Name),
+				os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+				os.FileMode(hdr.Mode),
+			)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(file, tr)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if EditPath != "" {
+		for {
+			answer, err := Caskf(false, "[c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
+			if err != nil {
+				return err
+			}
+
+			if answer {
+				err := Edit(filepath.Join(tmp, p.Name(), "PKGBUILD"))
+				if err != nil {
+					return err
+				}
+			} else {
+				break
+			}
+		}
+
+		install := filepath.Join(tmp, p.Name(), p.Name()+".install")
+		if _, err := os.Stat(install); err == nil {
+			for {
+				answer, err := Caskf(false, "[c6]Edit [c5]%v [c6]using [c5]%v?[ce]",
+					filepath.Base(install),
+					filepath.Base(EditPath),
+				)
+				if err != nil {
+					return err
+				}
+
+				if answer {
+					err := Edit(filepath.Join(tmp, p.Name(), install))
+					if err != nil {
+						return err
+					}
+				} else {
+					break
+				}
+			}
+		}
+	}
+
+	err = MakepkgIn(filepath.Join(tmp, p.Name()), "-s", "-c", "-i")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *AURPkg) Info(args ...string) error {

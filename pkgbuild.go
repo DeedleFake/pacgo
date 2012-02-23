@@ -53,7 +53,7 @@ type Pkgbuild struct {
 	Replaces  []string
 	Arch      []string
 
-	Raw []byte
+	//Raw []byte
 }
 
 func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
@@ -167,7 +167,19 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		return nil, errors.New("PKGBUILD doesn't have an arch.")
 	}
 
-	pb.Raw = raw
+	//pb.Raw = raw
 
 	return pb, nil
+}
+
+//func (p *Pkgbuild) WriteTo(w io.Writer) (int, error) {
+//	return w.Write(p.Raw)
+//}
+
+func (p *Pkgbuild) HasDeps() bool {
+	if (len(p.Deps) == 1) && (p.Deps[0] == "None") {
+		return false
+	}
+
+	return true
 }

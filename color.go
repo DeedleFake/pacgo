@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode"
 )
 
 var (
@@ -48,4 +49,28 @@ func Colorize(str string) string {
 
 func Cprintf(s string, args ...interface{}) (int, error) {
 	return fmt.Print(Colorize(fmt.Sprintf(s, args...)))
+}
+
+func Caskf(def bool, s string, args ...interface{}) (bool, error) {
+	q := " [c6][y/N][ce] "
+	if def {
+		q = " [c6][Y/n][ce] "
+	}
+
+	Cprintf(s+q, args...)
+
+	buf := make([]byte, 1)
+	_, err := os.Stdin.Read(buf)
+	if err != nil {
+		return false, err
+	}
+
+	switch unicode.ToLower(rune(buf[0])) {
+	case 'y':
+		def = true
+	case 'n':
+		def = false
+	}
+
+	return def, nil
 }

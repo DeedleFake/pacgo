@@ -1,9 +1,13 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -82,4 +86,27 @@ func NewAURPkg(info RPCResult) (*AURPkg, error) {
 		info:     info,
 		pkgbuild: pb,
 	}, nil
+}
+
+func GetSourceTar(name string) (*tar.Reader, error) {
+	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, name+"/"+name+".tar.gz"))
+	if err != nil {
+		return nil, err
+	}
+	defer rsp.Body.Close()
+
+	uz, err := gzip.NewReader(rsp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, uz)
+	if err != nil {
+		return nil, err
+	}
+
+	r := tar.NewReader(&buf)
+
+	return r, nil
 }

@@ -12,6 +12,8 @@ var (
 	MakepkgPath string
 
 	SudoPath string
+
+	EditPath string
 )
 
 func init() {
@@ -38,6 +40,15 @@ func init() {
 	if err != nil {
 		Cprintf("[c6]warning:[ce] Could not find sudo.\n")
 	}
+
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+	EditPath, err = exec.LookPath(editor)
+	if err != nil {
+		Cprintf("[c6]warning:[ce] Could not find %v.\n", editor)
+	}
 }
 
 func Pacman(args ...string) error {
@@ -62,10 +73,11 @@ func SilentPacman(args ...string) error {
 	return cmd.Run()
 }
 
-func Makepkg(args ...string) error {
+func MakepkgIn(dir string, args ...string) error {
 	cmd := &exec.Cmd{
 		Path: MakepkgPath,
 		Args: append([]string{path.Base(MakepkgPath)}, args...),
+		Dir:  dir,
 
 		Stdout: os.Stdout,
 		Stdin:  os.Stdin,
@@ -83,6 +95,23 @@ func SudoPacman(args ...string) error {
 	cmd := &exec.Cmd{
 		Path: SudoPath,
 		Args: append([]string{path.Base(SudoPath), PacmanPath}, args...),
+
+		Stdout: os.Stdout,
+		Stdin:  os.Stdin,
+		Stderr: os.Stderr,
+	}
+
+	return cmd.Run()
+}
+
+func Edit(args ...string) error {
+	if EditPath == "" {
+		panic("This should never happen.")
+	}
+
+	cmd := &exec.Cmd{
+		Path: EditPath,
+		Args: append([]string{path.Base(EditPath)}, args...),
 
 		Stdout: os.Stdout,
 		Stdin:  os.Stdin,
