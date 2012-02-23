@@ -164,12 +164,16 @@ func init() {
 				return err
 			}
 
+			if aurpkgs == nil {
+				Cprintf(" there is nothing to do\n")
+			}
+
 			fmt.Println()
 			Cprintf("[c6]Targets (%v):[ce]", len(aurpkgs))
 			for _, pkg := range aurpkgs {
 				Cprintf(" %v", pkg.Name())
 			}
-			fmt.Println()
+			Cprintf("\n\n")
 			answer, err := Caskf(true, "", "Proceed with installation?")
 			if err != nil {
 				return err
@@ -179,23 +183,22 @@ func init() {
 			}
 
 			for _, pkg := range aurpkgs {
-				lp, err := NewLocalPkg(pkg.Name())
-				if err != nil {
-					return err
-				}
+				if ip, ok := pkg.(InstallPkg); ok {
+					isdep, err := IsDep(pkg.Name())
+					if err != nil {
+						return err
+					}
+					asdeps := ""
+					if isdep {
+						asdeps = "--asdeps"
+					}
 
-				isdep, err := lp.IsDep()
-				if err != nil {
-					return err
-				}
-				asdeps := ""
-				if isdep {
-					asdeps = "--asdeps"
-				}
-
-				err = pkg.Install(nil, asdeps)
-				if err != nil {
-					return err
+					err = ip.Install(nil, asdeps)
+					if err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("Don't know how to install %v.", pkg.Name())
 				}
 			}
 		}

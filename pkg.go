@@ -34,8 +34,17 @@ func Newer(ver1, ver2 string) (bool, error) {
 type Pkg interface {
 	Name() string
 	Version() (string, error)
+}
+
+type InstallPkg interface {
+	Pkg
 
 	Install(Pkg, ...string) error
+}
+
+type InfoPkg interface {
+	Pkg
+
 	Info(...string) error
 }
 
@@ -145,9 +154,11 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 
 func InfoPkgs(args []string, pkgs []Pkg) error {
 	for _, pkg := range pkgs {
-		err := pkg.Info(args...)
-		if err != nil {
-			return err
+		if ip, ok := pkg.(InfoPkg); ok {
+			err := ip.Info(args...)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -257,9 +268,13 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 				}
 			}
 			for _, dep := range deps {
-				err := dep.Install(p, "--asdeps")
-				if err != nil {
-					return err
+				if ip, ok := dep.(InstallPkg); ok {
+					err := ip.Install(p, "--asdeps")
+					if err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("Don't know how to install %v.", dep.Name())
 				}
 			}
 		}
@@ -424,10 +439,6 @@ func (p *LocalPkg) Version() (string, error) {
 	return string(bytes.TrimSpace(ver[1])), nil
 }
 
-func (p *LocalPkg) Install(Pkg, ...string) error {
-	panic("Not implemented.")
-}
-
 func (p *LocalPkg) Info(args ...string) error {
 	err := Pacman(append(append([]string{"-Qi"}, args...), p.Name())...)
 	if err != nil {
@@ -437,8 +448,8 @@ func (p *LocalPkg) Info(args ...string) error {
 	return nil
 }
 
-func (p *LocalPkg) IsDep() (bool, error) {
-	info, err := PacmanOutput("-Qi", p.Name())
+func IsDep(name string) (bool, error) {
+	info, err := PacmanOutput("-Qi", name)
 	if err != nil {
 		return false, err
 	}
