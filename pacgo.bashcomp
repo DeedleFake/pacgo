@@ -8,7 +8,7 @@ _pacgo()
   local cmd="${COMP_WORDS[1]}"
 
   local cmds=(-Syu -Scc -Ss -G
-              -Su -Si -S -M)
+              -Su -Si -S -M -Ssq)
 
   case "$COMP_CWORD" in
     1)

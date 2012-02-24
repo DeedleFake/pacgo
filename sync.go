@@ -51,70 +51,81 @@ func init() {
 		},
 	})
 
-	RegisterCmd("-Ss", &Cmd{
-		Help: "Search for keywords.",
-		Run: func(args ...string) error {
-			sc := make(chan RPCResult)
-			errc := make(chan error)
-			go func() {
-				var search []string
-				for _, arg := range args[1:] {
-					if arg[0] != '-' {
-						search = append(search, arg)
-					}
+	runSearch := func(args ...string) error {
+		sc := make(chan RPCResult)
+		errc := make(chan error)
+		go func() {
+			var search []string
+			for _, arg := range args[1:] {
+				if arg[0] != '-' {
+					search = append(search, arg)
 				}
+			}
 
-				info, err := AURSearch(strings.Join(search, " "))
-				sc <- info
-				errc <- err
-			}()
+			info, err := AURSearch(strings.Join(search, " "))
+			sc <- info
+			errc <- err
+		}()
 
-			err := Pacman(args...)
-			if err != nil {
-				switch e := err.(type) {
-				case *exec.ExitError:
-					if ws, ok := e.Sys().(syscall.WaitStatus); ok && ws.ExitStatus() != 1 {
-						<-sc
-						<-errc
-						return err
-					}
-				default:
+		err := Pacman(args...)
+		if err != nil {
+			switch e := err.(type) {
+			case *exec.ExitError:
+				if ws, ok := e.Sys().(syscall.WaitStatus); ok && ws.ExitStatus() != 1 {
 					<-sc
 					<-errc
 					return err
 				}
-			}
-
-			info := <-sc
-			err = <-errc
-			if err != nil {
-				if err.Error() == "No results found" {
-					return nil
-				}
+			default:
+				<-sc
+				<-errc
 				return err
 			}
+		}
 
-			ic := make(chan string)
-			for i := range info.Results.([]interface{}) {
-				go func() {
-					installed := ""
-					if InLocal(info.GetSearch(i, "Name")) {
-						installed = " [c4][installed][ce]"
-					}
+		info := <-sc
+		err = <-errc
+		if err != nil {
+			if err.Error() == "No results found" {
+				return nil
+			}
+			return err
+		}
 
-					ic <- installed
-				}()
+		ic := make(chan string)
+		for i := range info.Results.([]interface{}) {
+			go func() {
+				installed := ""
+				if InLocal(info.GetSearch(i, "Name")) {
+					installed = " [c4][installed][ce]"
+				}
 
+				ic <- installed
+			}()
+
+			if args[0] != "-Ssq" {
 				Cprintf("[c3]aur/[c1]%v [c2]%v[ce]%v\n",
 					info.GetSearch(i, "Name"),
 					info.GetSearch(i, "Version"),
 					<-ic,
 				)
 				Cprintf("    %v\n", info.GetSearch(i, "Description"))
+			} else {
+				Cprintf("%v\n", info.GetSearch(i, "Name"))
 			}
+		}
 
-			return nil
-		},
+		return nil
+	}
+
+	RegisterCmd("-Ss", &Cmd{
+		Help: "List packages matching keywords.",
+		Run:  runSearch,
+	})
+
+	RegisterCmd("-Ssq", &Cmd{
+		Help: "List the names of packages matching keywords.",
+		Run:  runSearch,
 	})
 
 	runUpdate := func(args ...string) error {
