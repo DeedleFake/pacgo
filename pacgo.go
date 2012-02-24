@@ -45,15 +45,33 @@ type Cmd struct {
 }
 
 // The registered commands.
-var cmds map[string]*Cmd
+var cmds []cmdContext
+
+type cmdContext struct {
+	name string
+	cmd  *Cmd
+}
 
 // RegisterCmd registers the given command for the given arg.
 func RegisterCmd(arg string, cmd *Cmd) {
-	if cmds == nil {
-		cmds = make(map[string]*Cmd)
+	for i := range cmds {
+		if cmds[i].name == arg {
+			cmds[i].cmd = cmd
+			return
+		}
 	}
 
-	cmds[arg] = cmd
+	cmds = append(cmds, cmdContext{arg, cmd})
+}
+
+func GetCmd(arg string) *Cmd {
+	for _, cmd := range cmds {
+		if cmd.name == arg {
+			return cmd.cmd
+		}
+	}
+
+	return nil
 }
 
 var (
@@ -77,9 +95,9 @@ func MkTmpDir(name string) (string, error) {
 }
 
 // Usage prints the usage. If of is the name of a command, Usage()
-// prints the help for that command.
+// prints the help for that command instead.
 func Usage(of string) {
-	if cmd, ok := cmds[of]; ok {
+	if cmd := GetCmd(of); cmd != nil {
 		fmt.Printf("Usage: %v %v\n\n", os.Args[0], cmd.UsageLine)
 		fmt.Printf(cmd.HelpMore)
 	} else {
@@ -87,8 +105,8 @@ func Usage(of string) {
 
 		fmt.Println("Commands:")
 		tabw := tabwriter.NewWriter(os.Stdout, 2, 2, 2, ' ', 0)
-		for name, cmd := range cmds {
-			fmt.Fprintf(tabw, "  %v:\t%v\n", name, cmd.Help)
+		for _, cmd := range cmds {
+			fmt.Fprintf(tabw, "  %v:\t%v\n", cmd.name, cmd.cmd.Help)
 		}
 		tabw.Flush()
 	}
@@ -146,7 +164,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if cmd, ok := cmds[os.Args[1]]; ok {
+	if cmd := GetCmd(os.Args[1]); cmd != nil {
 		err := cmd.Run(os.Args[1:]...)
 		if err != nil {
 			if ue, ok := err.(UsageError); ok {
