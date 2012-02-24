@@ -1,0 +1,3 @@
+Handle provided packages better.
+	Currently required provided packages will be reinstalled if they
+	are deps for an AUR package.
