@@ -7,3 +7,7 @@ Find ways to speed up basically everything.
 
 Do better caching of AUR packages.
 	Handle partially built packages in TmpDir.
+
+Add support for vcs packages.
+
+Find way to run commands as root without sudo.

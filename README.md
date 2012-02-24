@@ -25,11 +25,9 @@ For more information about the go tool, run the following command after installi
 Usage
 -----
 
-Usage is much like pacman's, with a few notable differences:
+Usage is much like pacman's, but with a few important differences:
 
-pacgo will not simply pass unrecognized commands through to pacman. pacgo is intended to only wrap commands that have the possibility of using the AUR.
-
-pacgo adds a few new commands. For a complete list, run:
+pacgo will not simply pass unrecognized commands through to pacman. pacgo is intended to only wrap commands that have the possibility of using the AUR. pacgo also adds a few new commands. For a complete list, run:
 
 > pacgo --help
 
@@ -42,6 +40,8 @@ Authors
 [makepkg]: https://wiki.archlinux.org/index.php/Makepkg
 [packer]: https://github.com/bruenig/packer
 [go]: http://www.golang.org
+[sudo]: http://www.gratisoft.us/sudo
+<!-- [aurpkg]: http://aur.archlinux.org/packages.php?ID= -->
 
 <!--
     vim:ts=4 sw=4 et

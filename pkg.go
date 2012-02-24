@@ -180,7 +180,7 @@ func Update(pkg Pkg) (Pkg, error) {
 	case *PacmanPkg:
 		return nil, errors.New("Unable to tell if update is available.")
 	case *AURPkg:
-		if (UpdateDevel) && (p.IsDevel()) {
+		if (UpdateVCS) && (p.IsVCS()) {
 			return pkg, nil
 		}
 		return nil, nil
@@ -503,7 +503,7 @@ func (p *AURPkg) Info(args ...string) error {
 	return nil
 }
 
-func (p *AURPkg) IsDevel() bool {
+func (p *AURPkg) IsVCS() bool {
 	panic("Not implemented.")
 }
 

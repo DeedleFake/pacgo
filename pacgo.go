@@ -73,7 +73,7 @@ var (
 	// Whether or not development package updates should be forced.
 	//
 	// TODO: Implement this.
-	UpdateDevel bool
+	UpdateVCS bool
 )
 
 func main() {
