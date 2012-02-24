@@ -87,9 +87,7 @@ func (err PkgNotFoundError) Error() string {
 // returns nil and a PkgNotFoundError.
 func NewRemotePkg(name string) (Pkg, error) {
 	if InPacman(name) {
-		return &PacmanPkg{
-			name: name,
-		}, nil
+		return NewPacmanPkg(name)
 	}
 	if info, ok := InAUR(name); ok {
 		return NewAURPkg(info)
@@ -148,7 +146,10 @@ func Provides(pkg string) []Pkg {
 	for _, line := range lines {
 		name := string(line)
 		if InPacman(name) {
-			pkgs = append(pkgs, &PacmanPkg{name: name})
+			pkg, err := NewPacmanPkg(name)
+			if err == nil {
+				pkgs = append(pkgs, pkg)
+			}
 		}
 	}
 
@@ -260,6 +261,14 @@ func InfoPkgs(args []string, pkgs []Pkg) error {
 // PacmanPkg represents a remote package in pacman's sync database.
 type PacmanPkg struct {
 	name string
+}
+
+// NewPacmanPkg returns a *PacmanPkg representing the named package
+// and nil, or nil and an error, if any.
+func NewPacmanPkg(name string) (*PacmanPkg, error) {
+	return &PacmanPkg{
+		name: name,
+	}, nil
 }
 
 func (p *PacmanPkg) Name() string {
