@@ -69,12 +69,22 @@ type InfoPkg interface {
 	Info(...string) error
 }
 
+// PkgNotFoundError is returned when functions can't find a certain
+// package.
+type PkgNotFoundError struct {
+	PkgName string
+}
+
+func (err PkgNotFoundError) Error() string {
+	return "Package not found: " + err.PkgName
+}
+
 // NewRemotePkg returns a new Pkg representing the named package. It
 // checks the local sync database first, and returns a *PacmanPkg and
 // nil if it finds anything. If it doesn't, it tries the AUR. If it
 // finds the package, it returns a *AURPkg and nil. Otherwise it
-// returns nil and an error. If it encounters any errors, it will
-// return nil and the error.
+// returns nil and an error. If it is unable to find the package, it
+// returns nil and a PkgNotFoundError.
 func NewRemotePkg(name string) (Pkg, error) {
 	if InPacman(name) {
 		return &PacmanPkg{
@@ -85,7 +95,7 @@ func NewRemotePkg(name string) (Pkg, error) {
 		return NewAURPkg(info)
 	}
 
-	return nil, errors.New("No such package: " + name)
+	return nil, PkgNotFoundError{name}
 }
 
 // InLocal returns true if the named package is installed.
@@ -335,7 +345,11 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 				if !InLocal(dep) {
 					pkg, err := NewRemotePkg(dep)
 					if err != nil {
-						return err
+						if pnfe, ok := err.(PkgNotFoundError); ok {
+							Cprintf("[c6]warning:[ce] Could not find package %v. Ignoring...\n", pnfe.PkgName)
+						} else {
+							return err
+						}
 					}
 					if ap, ok := pkg.(*AURPkg); ok {
 						err := ap.Install(p, "--asdeps")
