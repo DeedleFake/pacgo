@@ -4,3 +4,6 @@ Handle packages of specific versions.
 
 Find ways to speed up basically everything.
 	Doing AUR updates is especially slow right now.
+
+Do better caching of AUR packages.
+	Handle partially built packages in TmpDir.

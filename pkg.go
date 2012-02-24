@@ -384,6 +384,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 			}
 		}
 		if !answer {
+			Cprintf("[c7]Skipping [c5]%v[c7]...[ce]\n\n", p.Name())
 			return nil
 		}
 
