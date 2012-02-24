@@ -1,3 +1,6 @@
 Handle provided packages better.
 
 Handle packages of specific versions.
+
+Find ways to speed up basically everything.
+	Doing AUR updates is especially slow right now.
