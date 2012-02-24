@@ -17,26 +17,32 @@ echo "ver:$pkgver"
 echo "rel:$pkgrel"
 echo "epoch:$epoch"
 
+echo "deplen:${#depends[@]}"
 for ((i=0; i<${#depends[@]}; i++)); do
 	echo "dep:${depends[i]}"
 done
 
+echo "makedeplen:${#makedepends[@]}"
 for ((i=0; i<${#makedepends[@]}; i++)); do
 	echo "makedep:${makedepends[i]}"
 done
 
+echo "optdeplen:${#optdeplen[@]}"
 for ((i=0; i<${#optdepends[@]}; i++)); do
 	echo "optdep:${optdepends[i]}"
 done
 
+echo "conflictlen:${#conflicts[@]}"
 for ((i=0; i<${#conflicts}; i++)); do
 	echo "conflict:${conflicts[i]}"
 done
 
+echo "repllen:${#replaces[@]}"
 for ((i=0; i<${#replaces}; i++)); do
 	echo "repl:${replaces[i]}"
 done
 
+echo "archlen:${#arch[@]}"
 for ((i=0; i<${#arch}; i++)); do
 	echo "arch:${arch[i]}"
 done
@@ -134,16 +140,52 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 				}
 				pb.Epoch = int(epoch)
 			}
+		case "deplen":
+			deplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				return nil, errors.New("Bad deplen.")
+			}
+			pb.Deps = make([]string, 0, deplen)
 		case "dep":
 			pb.Deps = append(pb.Deps, string(parts[1]))
+		case "makedeplen":
+			makedeplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				return nil, errors.New("Bad makedeplen.")
+			}
+			pb.MakeDeps = make([]string, 0, makedeplen)
 		case "makedep":
 			pb.MakeDeps = append(pb.MakeDeps, string(parts[1]))
+		case "optdeplen":
+			optdeplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				return nil, errors.New("Bad optdeplen.")
+			}
+			pb.OptDeps = make([]string, 0, optdeplen)
 		case "optdep":
 			pb.OptDeps = append(pb.OptDeps, string(parts[1]))
+		case "conflictlen":
+			conflictlen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				return nil, errors.New("Bad conflictlen.")
+			}
+			pb.Conflicts = make([]string, 0, conflictlen)
 		case "conflict":
 			pb.Conflicts = append(pb.Conflicts, string(parts[1]))
+		case "repllen":
+			repllen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				return nil, errors.New("Bad repllen.")
+			}
+			pb.Replaces = make([]string, 0, repllen)
 		case "repl":
 			pb.Replaces = append(pb.Replaces, string(parts[1]))
+		case "archlen":
+			archlen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				return nil, errors.New("Bad archlen.")
+			}
+			pb.Arch = make([]string, 0, archlen)
 		case "arch":
 			pb.Arch = append(pb.Arch, string(parts[1]))
 		}
