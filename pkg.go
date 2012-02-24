@@ -595,16 +595,35 @@ func (p *PkgbuildPkg) Install(dep Pkg, args ...string) error {
 		panic("How did that happen?")
 	}
 
-	for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
-		if !InLocal(dep) {
-			pkg, err := NewRemotePkg(dep)
-			if err != nil {
-				return err
-			}
-			if ap, ok := pkg.(*AURPkg); ok {
-				err := ap.Install(p, "--asdeps")
+	depauth := false
+argloop:
+	for _, arg := range args {
+		switch arg {
+		case "-s", "--syncdeps":
+			depauth = true
+			break argloop
+		}
+	}
+
+	// Just let makepkg fail if dependencies are missing.
+	if depauth {
+		for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
+			if !InLocal(dep) {
+				pkg, err := NewRemotePkg(dep)
 				if err != nil {
-					return err
+					if pnfe, ok := err.(PkgNotFoundError); ok {
+						if Provides(pnfe.PkgName) == nil {
+							return err
+						}
+					} else {
+						return err
+					}
+				}
+				if ap, ok := pkg.(*AURPkg); ok {
+					err := ap.Install(p, "--asdeps")
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
