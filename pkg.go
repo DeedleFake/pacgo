@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,9 +12,14 @@ import (
 )
 
 var (
+	// A regular expression used to get version information out of the
+	// outputs of the pacman -Qi and pacman -Si commands.
 	VersionRE = regexp.MustCompile(`Version\s+:\s+(.*)`)
 )
 
+// Newer returns true, nil if ver1 is greater than ver2, else it
+// returns false, nil. If any errors occur it returns false and an
+// error.
 func Newer(ver1, ver2 string) (bool, error) {
 	out, err := VercmpOutput(ver1, ver2)
 	if err != nil {
@@ -31,23 +37,44 @@ func Newer(ver1, ver2 string) (bool, error) {
 	panic("Bad vercmp output: " + string(out))
 }
 
+// Pkg represents a pacman package. This doesn't necessarily have to
+// be a local package, or even a real package.
 type Pkg interface {
+	// Name returns the name of the package.
 	Name() string
+
+	// Version returns the full version string of the package and nil,
+	// or "" and an error, if any.
 	Version() (string, error)
 }
 
+// InstallPkg represents a Pkg that can be installed.
 type InstallPkg interface {
 	Pkg
 
+	// Install installs the given package. The first argument is the
+	// Pkg that this package is a dependency of. If it's nil then the
+	// package is assumed to not be a dependency. The rest of the
+	// arguments may differ depending on the implementation. It
+	// returns an error, if any.
 	Install(Pkg, ...string) error
 }
 
+// InfoPkg represents a Pkg capable of printing information about
+// itself.
 type InfoPkg interface {
 	Pkg
 
+	// Info prints the packages info. It returns an error, if any.
 	Info(...string) error
 }
 
+// NewRemotePkg returns a new Pkg representing the named package. It
+// checks the local sync database first, and returns a *PacmanPkg and
+// nil if it finds anything. If it doesn't, it tries the AUR. If it
+// finds the package, it returns a *AURPkg and nil. Otherwise it
+// returns nil and an error. If it encounters any errors, it will
+// return nil and the error.
 func NewRemotePkg(name string) (Pkg, error) {
 	if InPacman(name) {
 		return &PacmanPkg{
@@ -61,6 +88,7 @@ func NewRemotePkg(name string) (Pkg, error) {
 	return nil, errors.New("No such package: " + name)
 }
 
+// InLocal returns true if the named package is installed.
 func InLocal(name string) bool {
 	err := SilentPacman("-Qi", name)
 	if err != nil {
@@ -70,6 +98,8 @@ func InLocal(name string) bool {
 	return true
 }
 
+// InPacman returns true if the named package was found in the sync
+// database.
 func InPacman(name string) bool {
 	err := SilentPacman("-Si", name)
 	if err != nil {
@@ -79,6 +109,9 @@ func InPacman(name string) bool {
 	return true
 }
 
+// InAUR checks for the named package in the AUR. If it finds it, it
+// returns the RPCResult for its query and true, else if return an
+// unspecified RPCResult and false.
 func InAUR(name string) (RPCResult, bool) {
 	info, err := AURInfo(name)
 	if err != nil {
@@ -88,6 +121,8 @@ func InAUR(name string) (RPCResult, bool) {
 	return info, true
 }
 
+// IsDep checks if the named package is installed as a dependency. It
+// returns the result and nil, or false and an error, if any.
 func IsDep(name string) (bool, error) {
 	info, err := PacmanOutput("-Qi", name)
 	if err != nil {
@@ -99,6 +134,8 @@ func IsDep(name string) (bool, error) {
 	return dep, nil
 }
 
+// Update checks for updates to the given Pkg. It returns a Pkg
+// representing the new version and nil, or nil and an error, if any.
 func Update(pkg Pkg) (Pkg, error) {
 	switch p := pkg.(type) {
 	case *PacmanPkg:
@@ -134,12 +171,19 @@ func Update(pkg Pkg) (Pkg, error) {
 	panic("Should never reach this point.")
 }
 
+// InstallPkgs installs the given pkgs using the given args. It
+// returns an error, if any.
 func InstallPkgs(args []string, pkgs []Pkg) error {
 	var pacpkgs []string
+	var other []InstallPkg
 	for _, pkg := range pkgs {
 		switch p := pkg.(type) {
 		case *PacmanPkg:
 			pacpkgs = append(pacpkgs, p.Name())
+		case InstallPkg:
+			other = append(other, p)
+		default:
+			return fmt.Errorf("Don't know how to install %v.", pkg.Name())
 		}
 	}
 
@@ -150,19 +194,18 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 		}
 	}
 
-	for _, pkg := range pkgs {
-		switch p := pkg.(type) {
-		case *AURPkg:
-			err := p.Install(nil, args...)
-			if err != nil {
-				return err
-			}
+	for _, pkg := range other {
+		err := pkg.Install(nil, args...)
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
+// InfoPkgs prints the info for the given pkgs, using the given args.
+// It returns an error, if any.
 func InfoPkgs(args []string, pkgs []Pkg) error {
 	for _, pkg := range pkgs {
 		if ip, ok := pkg.(InfoPkg); ok {
@@ -176,6 +219,7 @@ func InfoPkgs(args []string, pkgs []Pkg) error {
 	return nil
 }
 
+// PacmanPkg represents a remote package in pacman's sync database.
 type PacmanPkg struct {
 	name string
 }
@@ -216,6 +260,7 @@ func (p *PacmanPkg) Info(args ...string) error {
 	return Pacman(append([]string{"-Si"}, append(args, p.Name())...)...)
 }
 
+// AURPkg represents a package in the AUR.
 type AURPkg struct {
 	info     RPCResult
 	pkgbuild *Pkgbuild
@@ -408,10 +453,13 @@ func (p *AURPkg) IsDevel() bool {
 	panic("Not implemented.")
 }
 
+// LocalPkg represents an installed package.
 type LocalPkg struct {
 	name string
 }
 
+// NewLocalPkg returns a *LocalPkg representing the named package and
+// nil, or nil and an error, if any.
 func NewLocalPkg(name string) (*LocalPkg, error) {
 	if !InLocal(name) {
 		return nil, errors.New(name + " is not installed.")
@@ -422,6 +470,8 @@ func NewLocalPkg(name string) (*LocalPkg, error) {
 	}, nil
 }
 
+// ListLocalPkgs returns a slice containing all installed foreign
+// packages and nil, or nil and an error, if any.
 func ListLocalPkgs() ([]*LocalPkg, error) {
 	list, err := PacmanOutput("-Qqm")
 	if err != nil {
@@ -469,10 +519,13 @@ func (p *LocalPkg) Info(args ...string) error {
 	return nil
 }
 
+// PkgbuildPkg represents a package that hasn't been built yet.
 type PkgbuildPkg struct {
 	pkgbuild *Pkgbuild
 }
 
+// NewPkgbuildPkg returns a *PkgbuildPkg representing the given
+// PKGBUILD.
 func NewPkgbuildPkg(pb *Pkgbuild) (*PkgbuildPkg, error) {
 	return &PkgbuildPkg{
 		pkgbuild: pb,

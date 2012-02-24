@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 )
 
+// ExtractTar extracts the contents of tr to the given dir. It
+// returns an error, if any.
 func ExtractTar(dir string, tr *tar.Reader) error {
 	for {
 		hdr, err := tr.Next()

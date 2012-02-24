@@ -247,6 +247,9 @@ func init() {
 	})
 }
 
+// ParseSyncArgs is a convience function that seperates pkgs from
+// other arguments. If it encounters an error, it returns nil, nil,
+// and the error.
 func ParseSyncArgs(args ...string) (pacargs []string, pkgs []Pkg, err error) {
 	for _, arg := range args {
 		if arg[0] == '-' {

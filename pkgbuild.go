@@ -10,6 +10,8 @@ import (
 	"strconv"
 )
 
+// A bash script that echos parts of a PKGBUILD in a more parsable
+// format.
 const pkgbuildScan = `echo "name:$pkgname"
 echo "ver:$pkgver"
 echo "rel:$pkgrel"
@@ -42,6 +44,7 @@ done
 exit
 `
 
+// Pkgbuild represents a PKGBUILD.
 type Pkgbuild struct {
 	Name      string
 	Version   string
@@ -57,14 +60,11 @@ type Pkgbuild struct {
 	//Raw []byte
 }
 
+// ParsePkgbuild parses a PKGBUILD read from r. It returns a *Pkgbuild
+// and nil, or nil and an error, if any.
 func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
-	bash, err := exec.LookPath("bash")
-	if err != nil {
-		return nil, errors.New("Couldn't find bash.")
-	}
-
 	cmd := &exec.Cmd{
-		Path: bash,
+		Path: BashPath,
 	}
 
 	inpipe, err := cmd.StdinPipe()
@@ -177,6 +177,7 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 //	return w.Write(p.Raw)
 //}
 
+// HasDeps returns true if the *Pkgbuild has any deps.
 func (p *Pkgbuild) HasDeps() bool {
 	if (len(p.Deps) == 1) && (p.Deps[0] == "None") {
 		return false
@@ -185,6 +186,7 @@ func (p *Pkgbuild) HasDeps() bool {
 	return true
 }
 
+// LocalArch returns the arch string for the *Pkgbuild that a package built on the local machine using the PKGBUILD would be likely to have.
 func (p *Pkgbuild) LocalArch() string {
 	if (len(p.Arch) == 1) && (p.Arch[0] == "any") {
 		return "any"

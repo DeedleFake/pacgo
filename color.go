@@ -20,6 +20,8 @@ var (
 	ColorEnd string // None
 )
 
+// setColors sets up the colors. This is its own function so that it
+// doesn't always get run.
 func setColors() {
 	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
 		return
@@ -35,6 +37,13 @@ func setColors() {
 	ColorEnd = "\033[0m"
 }
 
+// Colorize colorizes the given string using the following format:
+//    [c1] -> Color1
+//    [c2] -> Color2
+//    ...
+//    [ce] -> ColorEnd
+//
+// Returns the colorized string.
 func Colorize(str string) string {
 	str = strings.Replace(str, "[c1]", Color1, -1)
 	str = strings.Replace(str, "[c2]", Color2, -1)
@@ -48,10 +57,16 @@ func Colorize(str string) string {
 	return str
 }
 
+// Cprintf colorizes and then print a string. This is a direct
+// replacement for fmt.Printf().
 func Cprintf(s string, args ...interface{}) (int, error) {
 	return fmt.Print(Colorize(fmt.Sprintf(s, args...)))
 }
 
+// Caskf prints the given question, in color, appending the
+// apporopriate question prompt to the end of it ([Y/n] or [y/N]). def
+// is the default answer. It returns the result and nil, or false and
+// an error, if any.
 func Caskf(def bool, col string, s string, args ...interface{}) (bool, error) {
 	q := fmt.Sprintf(" %v[y/N][ce] ", col)
 	if def {
