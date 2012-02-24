@@ -131,6 +131,34 @@ func InAUR(name string) (RPCResult, bool) {
 	return info, true
 }
 
+// Provides returns a list of packages that provide the package
+// specified or nil if none are found.
+//
+// TODO: Find a better way to do this?
+func Provides(pkg string) []Pkg {
+	out, err := PacmanOutput("-Ssq", "^"+pkg+"$")
+	if err != nil {
+		return nil
+	}
+	out = bytes.TrimSpace(out)
+
+	lines := bytes.Split(out, []byte{'\n'})
+
+	pkgs := make([]Pkg, 0, len(lines))
+	for _, line := range lines {
+		name := string(line)
+		if InPacman(name) {
+			pkgs = append(pkgs, &PacmanPkg{name: name})
+		}
+	}
+
+	if len(pkgs) == 0 {
+		return nil
+	}
+
+	return pkgs
+}
+
 // IsDep checks if the named package is installed as a dependency. It
 // returns the result and nil, or false and an error, if any.
 func IsDep(name string) (bool, error) {
@@ -340,27 +368,6 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 			return direrr
 		}
 
-		if p.pkgbuild.HasDeps() {
-			for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
-				if !InLocal(dep) {
-					pkg, err := NewRemotePkg(dep)
-					if err != nil {
-						if pnfe, ok := err.(PkgNotFoundError); ok {
-							Cprintf("[c6]warning:[ce] Could not find package %v. Ignoring...\n", pnfe.PkgName)
-						} else {
-							return err
-						}
-					}
-					if ap, ok := pkg.(*AURPkg); ok {
-						err := ap.Install(p, "--asdeps")
-						if err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-
 		var answer bool
 		if dep == nil {
 			answer, err = Caskf(true, "[c6]", "[c6]Install [c5]%v[c6]?[ce]", p.Name())
@@ -378,6 +385,29 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 		}
 		if !answer {
 			return nil
+		}
+
+		if p.pkgbuild.HasDeps() {
+			for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
+				if !InLocal(dep) {
+					pkg, err := NewRemotePkg(dep)
+					if err != nil {
+						if pnfe, ok := err.(PkgNotFoundError); ok {
+							if Provides(pnfe.PkgName) == nil {
+								return err
+							}
+						} else {
+							return err
+						}
+					}
+					if ap, ok := pkg.(*AURPkg); ok {
+						err := ap.Install(p, "--asdeps")
+						if err != nil {
+							return err
+						}
+					}
+				}
+			}
 		}
 
 		Cprintf("[c2]==> [c1]Installing [c5]%v [c1]from the [c3]AUR[c1].[ce]\n", p.Name())
@@ -494,7 +524,7 @@ func ListLocalPkgs() ([]*LocalPkg, error) {
 	list = bytes.TrimSpace(list)
 
 	var pkgs []*LocalPkg
-	lines := bytes.Split(list, []byte("\n"))
+	lines := bytes.Split(list, []byte{'\n'})
 	for _, line := range lines {
 		pkg, err := NewLocalPkg(string(line))
 		if err != nil {
