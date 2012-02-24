@@ -23,19 +23,25 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 )
 
-const (
-	// The URL format for using the AUR's RPC system.
-	RPCURLFmt = "https://aur.archlinux.org/rpc.php?type=%v&arg=%v"
+// RPCURL returns the url for the AUR's RPC system using the given
+// type and arg. url.QueryEscape() is run on both t and arg.
+func RPCURL(t, arg string) string {
+	t = url.QueryEscape(t)
+	arg = url.QueryEscape(arg)
 
-	// The URL format for downloading stuff from the AUR.
-	PKGURLFmt = "https://aur.archlinux.org/packages/%v"
-)
+	return "https://aur.archlinux.org/rpc.php?type=" + t + "&arg=" + arg
+}
+
+// PKGURL returns the url for the given package with the given
+// sub-path.
+func PKGURL(pkg, path string) string {
+	return "https://aur.archlinux.org/packages/" + pkg[:2] + "/" + pkg + "/" + path
+}
 
 // RPCResult represents a response from the AUR's RPC system.
 type RPCResult struct {
@@ -46,7 +52,7 @@ type RPCResult struct {
 // AURInfo retrieves the information about a specific package from
 // the AUR. It returns the result and an error, if any.
 func AURInfo(name string) (info RPCResult, err error) {
-	rsp, err := http.Get(fmt.Sprintf(RPCURLFmt, "info", url.QueryEscape(name)))
+	rsp, err := http.Get(RPCURL("info", name))
 	if err != nil {
 		return
 	}
@@ -68,7 +74,7 @@ func AURInfo(name string) (info RPCResult, err error) {
 // AURSearch retrieves search results from the AUR using the given
 // search. It returns the results and an error, if any.
 func AURSearch(arg string) (info RPCResult, err error) {
-	rsp, err := http.Get(fmt.Sprintf(RPCURLFmt, "search", url.QueryEscape(arg)))
+	rsp, err := http.Get(RPCURL("search", arg))
 	if err != nil {
 		return
 	}
@@ -103,7 +109,7 @@ func (r RPCResult) GetSearch(i int, k string) string {
 // the AUR and returns it as a *tar.Reader. It returns the result and
 // nil, or nil and an error, if any.
 func GetSourceTar(name string) (*tar.Reader, error) {
-	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, name+"/"+name+".tar.gz"))
+	rsp, err := http.Get(PKGURL(name, name+".tar.gz"))
 	if err != nil {
 		return nil, err
 	}

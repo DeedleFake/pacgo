@@ -333,7 +333,7 @@ type AURPkg struct {
 // NewAURPkg returns a *AURPkg using the given info. It returns an
 // the *AURPkg and nil, or nil and an error, if any.
 func NewAURPkg(info RPCResult) (*AURPkg, error) {
-	rsp, err := http.Get(fmt.Sprintf(PKGURLFmt, info.GetInfo("Name")+"/PKGBUILD"))
+	rsp, err := http.Get(PKGURL(info.GetInfo("Name"), "PKGBUILD"))
 	if err != nil {
 		return nil, err
 	}
