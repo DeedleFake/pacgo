@@ -23,7 +23,13 @@ import (
 
 func init() {
 	RegisterCmd("-M", &Cmd{
-		Help: "Read a local PKGBUILD, install AUR dependencies, and run makepkg.",
+		Help:      "Drop in replacement for makepkg with AUR support.",
+		UsageLine: "-M [makepkg opts]",
+		HelpMore: `-M scans a PKGBUILD for AUR dependencies, installs them, and then runs
+makepkg with the given arguments. Note that, since it's supposed to be
+a drop in replacement for makepkg, it will not install AUR
+dependencies unless given the -s (or --syncdeps) flag.
+`,
 		Run: func(args ...string) error {
 			file, err := os.Open("PKGBUILD")
 			if err != nil {

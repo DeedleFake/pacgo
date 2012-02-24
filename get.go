@@ -63,8 +63,17 @@ func ExtractTar(dir string, tr *tar.Reader) error {
 
 func init() {
 	RegisterCmd("-G", &Cmd{
-		Help: "Download the PKGBUILDs and other files for AUR packages.",
+		Help:      "Download the PKGBUILDs and other files for AUR packages.",
+		UsageLine: "-G <pkgname>...",
+		HelpMore: `-G downloads the source tarball for the given package(s) and extracts
+them to the current directory. It accepts no arguments other than
+package names, and will skip packages when it encounters errors.
+`,
 		Run: func(args ...string) error {
+			if len(args) == 1 {
+				return PrintUsageError
+			}
+
 			var pkgs []string
 			for _, arg := range args[1:] {
 				if arg[0] == '-' {
@@ -77,12 +86,14 @@ func init() {
 			for _, pkg := range pkgs {
 				tr, err := GetSourceTar(pkg)
 				if err != nil {
-					return err
+					Cprintf("[c6]warning:[ce] Failed to get source tar for %v. Skipping...\n", pkg)
+					continue
 				}
 
 				err = ExtractTar(".", tr)
 				if err != nil {
-					return err
+					Cprintf("[c6]warning:[ce] Failed to extract %v. Skipping...", pkg)
+					continue
 				}
 			}
 

@@ -28,7 +28,13 @@ import (
 
 func init() {
 	RegisterCmd("-S", &Cmd{
-		Help: "Install packages from a repo or the AUR.",
+		Help:      "Install packages from a repo or the AUR.",
+		UsageLine: "-S [pacman opts] <packages>",
+		HelpMore: `-S installs the listes packages, first getting everything it can from
+pacman, and then installing any packages it can find in the AUR. It
+will fail if it can't find a package. All options are passed straight
+through to pacman.
+`,
 		Run: func(args ...string) error {
 			pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
 			if err != nil {
@@ -40,8 +46,16 @@ func init() {
 	})
 
 	RegisterCmd("-Si", &Cmd{
-		Help: "Get info about a remote package.",
+		Help:      "Get info about a remote package.",
+		UsageLine: "-Si [pacman opts] <packages>",
+		HelpMore: `-Si prints information about the given packages, including packages
+in the AUR. Unlike pacman, it will fail if given no arguments.
+`,
 		Run: func(args ...string) error {
+			if len(args) == 1 {
+				return PrintUsageError
+			}
+
 			pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
 			if err != nil {
 				return err
@@ -52,6 +66,10 @@ func init() {
 	})
 
 	runSearch := func(args ...string) error {
+		if len(args) == 1 {
+			return PrintUsageError
+		}
+
 		sc := make(chan RPCResult)
 		errc := make(chan error)
 		go func() {
@@ -119,13 +137,22 @@ func init() {
 	}
 
 	RegisterCmd("-Ss", &Cmd{
-		Help: "List packages matching keywords.",
-		Run:  runSearch,
+		Help:      "List packages matching keywords.",
+		UsageLine: "-Ss [pacman opts] <keywords>",
+		HelpMore: `-Ss prints a list of packages matching the keywords, the repo they're
+in, their version, and and an indicator that they're installed if
+they're installed. Unlike pacman, it will fail if given no arguments.
+`,
+		Run: runSearch,
 	})
 
 	RegisterCmd("-Ssq", &Cmd{
-		Help: "List the names of packages matching keywords.",
-		Run:  runSearch,
+		Help:      "List the names of packages matching keywords.",
+		UsageLine: "-Ssq [pacman opts] <keywords>",
+		HelpMore: `-Ssq prints a list of packages matching the keywords. Unlike -Ss, it
+only lists their names. Like -Ss, it will fail if given no arguments.
+`,
+		Run: runSearch,
 	})
 
 	runUpdate := func(args ...string) error {
@@ -236,17 +263,33 @@ func init() {
 	}
 
 	RegisterCmd("-Su", &Cmd{
-		Help: "Install updates.",
-		Run:  runUpdate,
+		Help:      "Install updates.",
+		UsageLine: "-Su [pacman opts]",
+		HelpMore: `-Su checks for updates to all installed, pacman and AUR, packages and
+downloads and installs them.
+
+It is not yet capable of updating specific packages, but this
+functionality is intended.
+`,
+		Run: runUpdate,
 	})
 
 	RegisterCmd("-Syu", &Cmd{
-		Help: "Update local package cache and install updates.",
-		Run:  runUpdate,
+		Help:      "Update local package cache and install updates.",
+		UsageLine: "-Syu [pacman opts]",
+		HelpMore: `-Syu is exactly like -Su, but it also updates the local pacman
+package databases. AUR updates are not affected.
+`,
+		Run: runUpdate,
 	})
 
 	RegisterCmd("-Scc", &Cmd{
-		Help: "Clean leftover files.",
+		Help:      "Clean leftover files.",
+		UsageLine: "-Scc",
+		HelpMore: `-Scc is a convience command that runs pacman -Scc and then gives the
+option to remove pacgo's temporary directory. Unlike pacman, it
+accepts no arguments.
+`,
 		Run: func(args ...string) error {
 			if len(args) != 1 {
 				return UsageError{args[1]}
