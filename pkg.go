@@ -503,6 +503,8 @@ func (p *AURPkg) Info(args ...string) error {
 	return nil
 }
 
+// IsVCS returns whether or not a package gets its sources from a
+// version control system.
 func (p *AURPkg) IsVCS() bool {
 	panic("Not implemented.")
 }
