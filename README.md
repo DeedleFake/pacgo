@@ -40,7 +40,7 @@ Authors
 [packer]: https://github.com/bruenig/packer
 [go]: http://www.golang.org
 [sudo]: http://www.gratisoft.us/sudo
-<!-- [aurpkg]: http://aur.archlinux.org/packages.php?ID= -->
+[aurpkg]: http://aur.archlinux.org/packages.php?ID=56998
 
 <!--
     vim:ts=4 sw=4 et
