@@ -7,7 +7,6 @@ Prerequisites
 -------------
 
  * [pacman][pacman].
- * bash.
  * [sudo][sudo].
  * [Go][go].
 
