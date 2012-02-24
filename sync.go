@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 )
 
 func init() {
@@ -55,7 +56,7 @@ func init() {
 			if err != nil {
 				switch e := err.(type) {
 				case *exec.ExitError:
-					if e.ExitStatus() != 1 {
+					if ws, ok := e.Sys().(syscall.WaitStatus); ok && ws.ExitStatus() != 1 {
 						<-sc
 						<-errc
 						return err
