@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // ExtractTar extracts the contents of tr to the given dir. It
@@ -37,7 +38,7 @@ func ExtractTar(dir string, tr *tar.Reader) error {
 		}
 
 		if hdr.Typeflag == tar.TypeDir {
-			err = os.Mkdir(filepath.Join(dir, hdr.Name), 0755)
+			err = os.MkdirAll(filepath.Join(dir, hdr.Name), 0755)
 			if err != nil {
 				return err
 			}
@@ -83,19 +84,27 @@ package names, and will skip packages when it encounters errors.
 				}
 			}
 
+			var wg sync.WaitGroup
 			for _, pkg := range pkgs {
-				tr, err := GetSourceTar(pkg)
-				if err != nil {
-					Cprintf("[c6]warning:[ce] Failed to get source tar for %v. Skipping...\n", pkg)
-					continue
-				}
+				wg.Add(1)
+				go func(pkg string) {
+					defer wg.Done()
 
-				err = ExtractTar(".", tr)
-				if err != nil {
-					Cprintf("[c6]warning:[ce] Failed to extract %v. Skipping...", pkg)
-					continue
-				}
+					tr, err := GetSourceTar(pkg)
+					if err != nil {
+						Cprintf("[c6]warning:[ce] Failed to get source tar for %v. Skipping...\n", pkg)
+						return
+					}
+
+					err = ExtractTar(".", tr)
+					if err != nil {
+						Cprintf("[c6]warning:[ce] Failed to extract %v. Skipping...\n", pkg)
+						return
+					}
+				}(pkg)
 			}
+
+			wg.Wait()
 
 			return nil
 		},
