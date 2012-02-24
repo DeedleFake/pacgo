@@ -307,12 +307,12 @@ func (p *PacmanPkg) Version() (string, error) {
 }
 
 func (p *PacmanPkg) Install(dep Pkg, args ...string) error {
-	asdeps := ""
+	as := ""
 	if dep != nil {
-		asdeps = "--asdeps"
+		as = "--asdeps"
 	}
 
-	err := SudoPacman(append([]string{"-S", asdeps}, args...)...)
+	err := SudoPacman(append([]string{"-S", as}, args...)...)
 	if err != nil {
 		return err
 	}
@@ -360,6 +360,14 @@ func (p *AURPkg) Version() (string, error) {
 
 func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 	tmp, direrr := MkTmpDir(p.Name())
+
+	var isdep bool
+	for _, arg := range args {
+		if arg == "--asdeps" {
+			isdep = true
+			break
+		}
+	}
 
 	cachefile := filepath.Join(tmp,
 		p.Name(),
@@ -490,9 +498,31 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 		}
 	}
 
-	err = MakepkgIn(filepath.Join(tmp, p.Name()), "-s", "-c", "-i")
-	if err != nil {
-		return err
+	if (dep == nil) && (!isdep) {
+		err = MakepkgIn(filepath.Join(tmp, p.Name()), "-s", "-c", "-i")
+		if err != nil {
+			return err
+		}
+	} else {
+		dir := filepath.Join(tmp, p.Name())
+
+		err = MakepkgIn(filepath.Join(tmp, p.Name()), "-s", "-c")
+		if err != nil {
+			return err
+		}
+
+		pkgs, err := filepath.Glob(filepath.Join(dir, "*.pkg.tar.xz"))
+		if err != nil {
+			return err
+		}
+		if len(pkgs) != 1 {
+			return fmt.Errorf("Wrong number of pkgs: %v.", len(pkgs))
+		}
+
+		err = SudoPacman("-U", "--asdeps", pkgs[0])
+		if err != nil {
+			return err
+		}
 	}
 
 	os.RemoveAll(tmp)
