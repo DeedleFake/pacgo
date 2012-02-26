@@ -197,7 +197,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 		}
 
 		if pkgs == nil {
-			err := SudoPacman(append([]string{args[0]}, pacargs...)...)
+			err := AsRootPacman(append([]string{args[0]}, pacargs...)...)
 			if err != nil {
 				<-ac
 				<-errc
@@ -295,7 +295,7 @@ accepts no arguments.
 				return UsageError{args[1]}
 			}
 
-			err := SudoPacman(args...)
+			err := AsRootPacman(args...)
 			if err != nil {
 				return err
 			}

@@ -10,6 +10,4 @@ Do better caching of AUR packages.
 
 Add support for vcs packages.
 
-Find way to run commands as root without sudo.
-
 Support --ignore and related options in pacman.conf.

@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 )
 
 // These store the paths to the various executables that are run by
@@ -31,7 +32,9 @@ var (
 	MakepkgPath string
 	VercmpPath  string
 
-	SudoPath string
+	// Using sudo?
+	Sudo       bool
+	AsRootPath string
 
 	EditPath string
 
@@ -69,10 +72,17 @@ func init() {
 		os.Exit(1)
 	}
 
-	// Find sudo.
-	SudoPath, err = exec.LookPath("sudo")
+	// Find sudo. If you can't find it, use su.
+	AsRootPath, err = exec.LookPath("sudo")
 	if err != nil {
-		Cprintf("[c6]warning:[ce] Could not find sudo.\n")
+		AsRootPath, err = exec.LookPath("su")
+		if err != nil {
+			Cprintf("[c6]warning:[ce] Could not find sudo or su.\n")
+		} else {
+			Cprintf("[c6]warning:[ce] Could not find sudo. Using su.\n")
+		}
+	} else {
+		Sudo = true
 	}
 
 	// Find the editor. Try the $EDITOR environment variable first.
@@ -162,22 +172,38 @@ func VercmpOutput(args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
-// SudoPacman runs sudo pacman, passing the given args to it. It
+// AsRootPacman runs pacman as root, passing the given args to it. It
 // returns an error, if any.
-func SudoPacman(args ...string) error {
-	if SudoPath == "" {
-		return errors.New("sudo not found.")
+func AsRootPacman(args ...string) error {
+	if AsRootPath == "" {
+		return errors.New("Could not find sudo or su.")
+	}
+
+	args = append([]string{PacmanPath}, args...)
+
+	var cmdargs []string
+	if Sudo {
+		cmdargs = make([]string, 0, len(args)+1)
+		cmdargs = append(cmdargs, path.Base(AsRootPath))
+		cmdargs = append(cmdargs, args...)
+	} else {
+		cmdargs = make([]string, 0, 3)
+		cmdargs = append(cmdargs, path.Base(AsRootPath), "-c")
+		cmdargs = append(cmdargs, strings.Join(args, " "))
 	}
 
 	cmd := &exec.Cmd{
-		Path: SudoPath,
-		Args: append([]string{path.Base(SudoPath), PacmanPath}, args...),
+		Path: AsRootPath,
+		Args: cmdargs,
 
 		Stdout: os.Stdout,
 		Stdin:  os.Stdin,
 		Stderr: os.Stderr,
 	}
 
+	if !Sudo {
+		Cprintf("Root ")
+	}
 	return cmd.Run()
 }
 

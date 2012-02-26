@@ -7,8 +7,12 @@ Prerequisites
 -------------
 
  * [pacman][pacman].
- * [sudo][sudo].
  * [Go][go].
+
+Optional Deps
+-------------
+
+ * [sudo][sudo].
 
 Installation
 ------------

@@ -244,7 +244,7 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 	}
 
 	if pacpkgs != nil {
-		err := SudoPacman(append([]string{"-S"}, append(args, pacpkgs...)...)...)
+		err := AsRootPacman(append([]string{"-S"}, append(args, pacpkgs...)...)...)
 		if err != nil {
 			return err
 		}
@@ -312,7 +312,7 @@ func (p *PacmanPkg) Install(dep Pkg, args ...string) error {
 		as = "--asdeps"
 	}
 
-	err := SudoPacman(append([]string{"-S", as}, args...)...)
+	err := AsRootPacman(append([]string{"-S", as}, args...)...)
 	if err != nil {
 		return err
 	}
@@ -516,7 +516,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 			return fmt.Errorf("Wrong number of pkgs: %v.", len(pkgs))
 		}
 
-		err = SudoPacman("-U", "--asdeps", pkgs[0])
+		err = AsRootPacman("-U", "--asdeps", pkgs[0])
 		if err != nil {
 			return err
 		}
