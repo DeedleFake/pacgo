@@ -149,33 +149,33 @@ func InAUR(name string) (RPCResult, bool) {
 // Provides returns a list of packages that provide the package
 // specified or nil if none are found.
 //
-// TODO: Find a better way to do this?
-func Provides(pkg string) []Pkg {
-	out, err := PacmanOutput("-Ssq", "^"+pkg+"$")
-	if err != nil {
-		return nil
-	}
-	out = bytes.TrimSpace(out)
-
-	lines := bytes.Split(out, []byte{'\n'})
-
-	pkgs := make([]Pkg, 0, len(lines))
-	for _, line := range lines {
-		name := string(line)
-		if InPacman(name) {
-			pkg, err := NewPacmanPkg(name)
-			if err == nil {
-				pkgs = append(pkgs, pkg)
-			}
-		}
-	}
-
-	if len(pkgs) == 0 {
-		return nil
-	}
-
-	return pkgs
-}
+// TODO: This doesn't work at all. It needs to be completely redone.
+//func Provides(pkg string) []Pkg {
+//	out, err := PacmanOutput("-Ssq", "^"+pkg+"$")
+//	if err != nil {
+//		return nil
+//	}
+//	out = bytes.TrimSpace(out)
+//
+//	lines := bytes.Split(out, []byte{'\n'})
+//
+//	pkgs := make([]Pkg, 0, len(lines))
+//	for _, line := range lines {
+//		name := string(line)
+//		if InPacman(name) {
+//			pkg, err := NewPacmanPkg(name)
+//			if err == nil {
+//				pkgs = append(pkgs, pkg)
+//			}
+//		}
+//	}
+//
+//	if len(pkgs) == 0 {
+//		return nil
+//	}
+//
+//	return pkgs
+//}
 
 // IsDep checks if the named package is installed as a dependency. It
 // returns the result and nil, or false and an error, if any.
@@ -427,11 +427,8 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 				if !InLocal(dep) {
 					pkg, err := NewRemotePkg(dep)
 					if err != nil {
-						if pnfe, ok := err.(PkgNotFoundError); ok {
-							if Provides(pnfe.PkgName) == nil {
-								return err
-							}
-						} else {
+						if _, ok := err.(PkgNotFoundError); !ok {
+							// Let makepkg catch missing packages.
 							return err
 						}
 					}
@@ -669,11 +666,8 @@ argloop:
 			if !InLocal(dep) {
 				pkg, err := NewRemotePkg(dep)
 				if err != nil {
-					if pnfe, ok := err.(PkgNotFoundError); ok {
-						if Provides(pnfe.PkgName) == nil {
-							return err
-						}
-					} else {
+					if _, ok := err.(PkgNotFoundError); !ok {
+						// Let makepkg catch missing packages.
 						return err
 					}
 				}
