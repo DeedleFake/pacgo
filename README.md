@@ -1,7 +1,7 @@
 pacgo
 =====
 
-pacgo is a wrapper for [pacman][pacman] written in [Go][go] and heavily inspired by [packer][packer]. Its (eventual) goal is to be fast and easily modifiable. It supports AUR installation, search, and update checking, as well as AUR dependency handling for [makepkg][makepkg]. It is also capable of downloading and extracting source tarballs from the AUR.
+pacgo is an experimental wrapper for [pacman][pacman] written in [Go][go] and heavily inspired by [packer][packer]. Its (eventual) goal is to be fast and easily modifiable. It supports AUR installation, search, and update checking, as well as AUR dependency handling for [makepkg][makepkg]. It is also capable of downloading and extracting source tarballs from the AUR.
 
 Prerequisites
 -------------
