@@ -20,6 +20,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os/exec"
@@ -144,7 +145,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		case "rel":
 			rel, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
-				return nil, errors.New("Bad $pkgrel in PKGBUILD.")
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad $pkgrel: %v.", ne.Num)
 			}
 			pb.Release = int(rel)
 		case "epoch":
@@ -153,14 +155,16 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			} else {
 				epoch, err := strconv.ParseInt(str, 10, 0)
 				if err != nil {
-					return nil, errors.New("Bad $epoch in PKGBUILD.")
+					ne := err.(*strconv.NumError)
+					return nil, fmt.Errorf("Got bad $epoch: %v.", ne.Num)
 				}
 				pb.Epoch = int(epoch)
 			}
 		case "deplen":
 			deplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
-				return nil, errors.New("Bad deplen.")
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad deplen: %v.", ne.Num)
 			}
 			pb.Deps = make([]string, 0, deplen)
 		case "dep":
@@ -168,7 +172,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		case "makedeplen":
 			makedeplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
-				return nil, errors.New("Bad makedeplen.")
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad makedeplen: %v.", ne.Num)
 			}
 			pb.MakeDeps = make([]string, 0, makedeplen)
 		case "makedep":
@@ -176,7 +181,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		case "optdeplen":
 			optdeplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
-				return nil, errors.New("Bad optdeplen.")
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad optdeplen: %v.", ne.Num)
 			}
 			pb.OptDeps = make([]string, 0, optdeplen)
 		case "optdep":
@@ -184,7 +190,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		case "conflictlen":
 			conflictlen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
-				return nil, errors.New("Bad conflictlen.")
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad conflictlen: %v.", ne.Num)
 			}
 			pb.Conflicts = make([]string, 0, conflictlen)
 		case "conflict":
@@ -192,7 +199,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		case "repllen":
 			repllen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
-				return nil, errors.New("Bad repllen.")
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad repllen: %v.", ne.Num)
 			}
 			pb.Replaces = make([]string, 0, repllen)
 		case "repl":
@@ -200,7 +208,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		case "archlen":
 			archlen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
-				return nil, errors.New("Bad archlen.")
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad archlen: %v.", ne.Num)
 			}
 			pb.Arch = make([]string, 0, archlen)
 		case "arch":

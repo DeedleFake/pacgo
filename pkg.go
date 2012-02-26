@@ -195,7 +195,7 @@ func IsDep(name string) (bool, error) {
 func Update(pkg Pkg) (Pkg, error) {
 	switch p := pkg.(type) {
 	case *PacmanPkg:
-		return nil, errors.New("Unable to tell if update is available.")
+		return nil, errors.New("Can't check for updates to *PacmanPkg.")
 	case *AURPkg:
 		if (UpdateVCS) && (p.IsVCS()) {
 			return pkg, nil
@@ -300,7 +300,7 @@ func (p *PacmanPkg) Version() (string, error) {
 
 	ver := VersionRE.FindSubmatch(info)
 	if ver == nil {
-		return "", errors.New("Couldn't determine version.")
+		return "", fmt.Errorf("PacmanPkg: Couldn't determine version of %v.", p.Name())
 	}
 
 	return string(bytes.TrimSpace(ver[1])), nil
@@ -562,7 +562,7 @@ type LocalPkg struct {
 // nil, or nil and an error, if any.
 func NewLocalPkg(name string) (*LocalPkg, error) {
 	if !InLocal(name) {
-		return nil, errors.New(name + " is not installed.")
+		return nil, errors.New(name + " is not installed. Can't make *LocalPkg.")
 	}
 
 	return &LocalPkg{
@@ -604,7 +604,7 @@ func (p *LocalPkg) Version() (string, error) {
 
 	ver := VersionRE.FindSubmatch(info)
 	if ver == nil {
-		return "", errors.New("Couldn't determine version.")
+		return "", fmt.Errorf("LocalPkg: Couldn't determine version of %v.", p.Name())
 	}
 
 	return string(bytes.TrimSpace(ver[1])), nil

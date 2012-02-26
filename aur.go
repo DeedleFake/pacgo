@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -65,7 +64,12 @@ func AURInfo(name string) (info RPCResult, err error) {
 	}
 
 	if info.Type == "error" {
-		return info, errors.New(info.Results.(string))
+		err = &RPCError{
+			Type: "info",
+			Arg:  name,
+			Err:  info.Results.(string),
+		}
+		return
 	}
 
 	return
@@ -87,7 +91,12 @@ func AURSearch(arg string) (info RPCResult, err error) {
 	}
 
 	if info.Type == "error" {
-		return info, errors.New(info.Results.(string))
+		err = &RPCError{
+			Type: "search",
+			Arg:  arg,
+			Err:  info.Results.(string),
+		}
+		return
 	}
 
 	return
@@ -129,4 +138,15 @@ func GetSourceTar(name string) (*tar.Reader, error) {
 	r := tar.NewReader(&buf)
 
 	return r, nil
+}
+
+// RPCError represents an error returned by the AUR's RPC system.
+type RPCError struct {
+	Type string // The type that was used in the RPC call.
+	Arg  string // The arg that was used in the RPC call.
+	Err  string // The text of the error returned by rpc.php.
+}
+
+func (err *RPCError) Error() string {
+	return "rpc.php?type=" + err.Type + "&" + err.Arg + " returned '" + err.Err + "'"
 }
