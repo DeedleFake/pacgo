@@ -70,6 +70,13 @@ in the AUR. Unlike pacman, it will fail if given no arguments.
 			return PrintUsageError
 		}
 
+		for _, arg := range args {
+			switch arg {
+			case "-q", "--quiet":
+				args[0] = "-Ssq"
+			}
+		}
+
 		sc := make(chan RPCResult)
 		errc := make(chan error)
 		go func() {
