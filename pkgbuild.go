@@ -34,6 +34,7 @@ const pkgbuildScan = `echo "name:$pkgname"
 echo "ver:$pkgver"
 echo "rel:$pkgrel"
 echo "epoch:$epoch"
+echo "install:$install"
 
 echo "deplen:${#depends[@]}"
 for ((i=0; i<${#depends[@]}; i++)); do
@@ -88,6 +89,7 @@ type Pkgbuild struct {
 	Version   string
 	Release   int
 	Epoch     int
+	Install   string
 	Deps      []string
 	MakeDeps  []string
 	OptDeps   []string
@@ -175,6 +177,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 				}
 				pb.Epoch = int(epoch)
 			}
+		case "install":
+			pb.Install = string(parts[1])
 		case "deplen":
 			deplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -264,11 +268,16 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 
 // HasDeps returns true if the *Pkgbuild has any deps.
 func (p *Pkgbuild) HasDeps() bool {
-	if (len(p.Deps) == 1) && (p.Deps[0] == "None") {
+	if (len(p.Deps) == 1) && (p.Deps[0] == "None") && (len(p.MakeDeps) == 1) && (p.MakeDeps[0] == "None") {
 		return false
 	}
 
 	return true
+}
+
+// HasInstall returns true if the *Pkgbuild specifies an install script.
+func (p *Pkgbuild) HasInstall() bool {
+	return p.Install != ""
 }
 
 // LocalArch returns the arch string for the *Pkgbuild that a package built on the local machine using the PKGBUILD would be likely to have.

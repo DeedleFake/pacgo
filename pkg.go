@@ -474,25 +474,29 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 				}
 			}
 
-			install := filepath.Join(tmp, p.Name(), p.Name()+".install")
-			if _, err := os.Stat(install); err == nil {
-				for {
-					answer, err := Caskf(false, "[c6]Edit [c5]%v [c6]using [c5]%v?[ce]",
-						filepath.Base(install),
-						filepath.Base(EditPath),
-					)
-					if err != nil {
-						return err
-					}
-
-					if answer {
-						err := Edit(filepath.Join(tmp, p.Name(), install))
+			if p.pkgbuild.HasInstall() {
+				install := filepath.Join(tmp, p.Name(), p.pkgbuild.Install)
+				if _, err := os.Stat(install); err == nil {
+					for {
+						answer, err := Caskf(false, "[c6]", "[c6]Edit [c5]%v [c6]using [c5]%v?[ce]",
+							p.pkgbuild.Install,
+							filepath.Base(EditPath),
+						)
 						if err != nil {
 							return err
 						}
-					} else {
-						break
+
+						if answer {
+							err := Edit(install)
+							if err != nil {
+								return err
+							}
+						} else {
+							break
+						}
 					}
+				} else {
+					Cprintf("[c6]warning:[ce] Can't find %v install script.\n", install)
 				}
 			}
 		}
@@ -662,7 +666,7 @@ argloop:
 	}
 
 	// Just let makepkg fail if dependencies are missing.
-	if depauth {
+	if depauth && p.pkgbuild.HasDeps() {
 		for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
 			if !InLocal(dep) {
 				pkg, err := NewRemotePkg(dep)
