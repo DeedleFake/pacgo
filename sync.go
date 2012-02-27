@@ -278,7 +278,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 
 					err = ip.Install(nil, asdeps)
 					if err != nil {
-						return err
+						Cprintf("[c6]warning:[ce] %v failed: %v\n", ip.Name(), err)
 					}
 				} else {
 					return fmt.Errorf("Don't know how to install %v.", pkg.Name())
