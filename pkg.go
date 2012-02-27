@@ -192,40 +192,43 @@ func IsDep(name string) (bool, error) {
 
 // Update checks for updates to the given Pkg. It returns a Pkg
 // representing the new version and nil, or nil and an error, if any.
-func Update(pkg Pkg) (Pkg, error) {
-	switch p := pkg.(type) {
-	case *PacmanPkg:
-		return nil, errors.New("Can't check for updates to *PacmanPkg.")
-	case *AURPkg:
-		if (UpdateVCS) && (p.IsVCS()) {
-			return pkg, nil
-		}
-		return nil, nil
-	case *LocalPkg:
-		r, err := NewRemotePkg(p.Name())
-		if err != nil {
-			return nil, err
-		}
-		rver, err := r.Version()
-		if err != nil {
-			return nil, err
-		}
-		pver, err := p.Version()
-		if err != nil {
-			return nil, err
-		}
-		up, err := Newer(rver, pver)
-		if err != nil {
-			return nil, err
-		}
-		if up {
-			return r, nil
-		}
-		return nil, nil
-	}
-
-	panic("Should never reach this point.")
-}
+//
+// TODO: Find a way to implement this as its own function that doesn't
+//       needlessly slow everything down.
+//func Update(pkg Pkg) (Pkg, error) {
+//	switch p := pkg.(type) {
+//	case *PacmanPkg:
+//		return nil, errors.New("Can't check for updates to *PacmanPkg.")
+//	case *AURPkg:
+//		if (UpdateVCS) && (p.pkgbuild.IsVCS()) {
+//			return pkg, nil
+//		}
+//		return nil, nil
+//	case *LocalPkg:
+//		r, err := NewRemotePkg(p.Name())
+//		if err != nil {
+//			return nil, err
+//		}
+//		rver, err := r.Version()
+//		if err != nil {
+//			return nil, err
+//		}
+//		pver, err := p.Version()
+//		if err != nil {
+//			return nil, err
+//		}
+//		up, err := Newer(rver, pver)
+//		if err != nil {
+//			return nil, err
+//		}
+//		if up {
+//			return r, nil
+//		}
+//		return nil, nil
+//	}
+//
+//	panic("Should never reach this point.")
+//}
 
 // InstallPkgs installs the given pkgs using the given args. It
 // returns an error, if any.
@@ -547,10 +550,8 @@ func (p *AURPkg) Info(args ...string) error {
 	return nil
 }
 
-// IsVCS returns whether or not a package gets its sources from a
-// version control system.
 func (p *AURPkg) IsVCS() bool {
-	panic("Not implemented.")
+	return p.pkgbuild.IsVCS()
 }
 
 // LocalPkg represents an installed package.
@@ -570,8 +571,8 @@ func NewLocalPkg(name string) (*LocalPkg, error) {
 	}, nil
 }
 
-// ListLocalPkgs returns a slice containing all installed foreign
-// packages and nil, or nil and an error, if any.
+// ListLocalPkgs returns either a slice containing all installed
+// foreign packages and nil, or nil and an error, if any.
 func ListLocalPkgs() ([]*LocalPkg, error) {
 	list, err := PacmanOutput("-Qqm")
 	if err != nil {
@@ -579,8 +580,8 @@ func ListLocalPkgs() ([]*LocalPkg, error) {
 	}
 	list = bytes.TrimSpace(list)
 
-	var pkgs []*LocalPkg
 	lines := bytes.Split(list, []byte{'\n'})
+	pkgs := make([]*LocalPkg, 0, len(lines))
 	for _, line := range lines {
 		pkg, err := NewLocalPkg(string(line))
 		if err != nil {

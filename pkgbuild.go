@@ -65,6 +65,20 @@ for ((i=0; i<${#arch}; i++)); do
 	echo "arch:${arch[i]}"
 done
 
+if [[ -n "$_darcstrunk" && -n "$_darcsmod" ]]; then
+	echo "vcs:darcs"
+elif [[ -n "$_cvsroot" && -n "$_cvsmod" ]]; then
+	echo "vcs:cvs"
+elif [[ -n "$_gitroot" && -n "$_gitname" ]]; then
+	echo "vcs:git"
+elif [[ -n "$_svntrunk" && -n "$_svnmod" ]]; then
+	echo "vcs:svn"
+elif [[ -n "$_bzrtrunk" && -n "$_bzrmod" ]]; then
+	echo "vcs:bzr"
+elif [[ -n "$_hgroot" && -n "$_hgrepo" ]]; then
+	echo "vcs:hg"
+fi
+
 exit
 `
 
@@ -80,6 +94,7 @@ type Pkgbuild struct {
 	Conflicts []string
 	Replaces  []string
 	Arch      []string
+	VCS       string
 
 	//Raw []byte
 }
@@ -214,6 +229,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			pb.Arch = make([]string, 0, archlen)
 		case "arch":
 			pb.Arch = append(pb.Arch, string(parts[1]))
+		case "vcs":
+			pb.VCS = string(parts[1])
 		}
 	}
 
@@ -277,4 +294,9 @@ func (p *Pkgbuild) LocalArch() string {
 	}
 
 	return ""
+}
+
+// IsVCS returns true if p represents a VCS PKGBUILD.
+func (p *Pkgbuild) IsVCS() bool {
+	return len(p.VCS) > 0
 }

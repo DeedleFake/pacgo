@@ -185,15 +185,35 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 
 				var aurpkgs []Pkg
 				for _, pkg := range pkgs {
-					if _, ok := InAUR(pkg.Name()); ok {
-						up, err := Update(pkg)
+					if info, ok := InAUR(pkg.Name()); ok {
+						aurpkg, err := NewAURPkg(info)
 						if err != nil {
 							ac <- nil
 							errc <- err
 							return
 						}
-						if up != nil {
-							aurpkgs = append(aurpkgs, up)
+						if (UpdateVCS) && (aurpkg.IsVCS()) {
+							aurpkgs = append(aurpkgs, aurpkg)
+						} else {
+							ver1, err := aurpkg.Version()
+							if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
+							ver2, err := pkg.Version()
+							if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
+							if up, err := Newer(ver1, ver2); (err == nil) && up {
+								aurpkgs = append(aurpkgs, aurpkg)
+							} else if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
 						}
 					}
 				}
@@ -271,12 +291,17 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 
 	RegisterCmd("-Su", &Cmd{
 		Help:      "Install updates.",
-		UsageLine: "-Su [pacman opts]",
+		UsageLine: "-Su [opts]",
 		HelpMore: `-Su checks for updates to all installed, pacman and AUR, packages and
 downloads and installs them.
 
+-Su also takes these non-pacman options:
+	--upvcs: Update VCS AUR packages.
+
 It is not yet capable of updating specific packages, but this
 functionality is intended.
+
+See also: -Syu
 `,
 		Run: runUpdate,
 	})
@@ -286,6 +311,8 @@ functionality is intended.
 		UsageLine: "-Syu [pacman opts]",
 		HelpMore: `-Syu is exactly like -Su, but it also updates the local pacman
 package databases. AUR updates are not affected.
+
+See also: -Su
 `,
 		Run: runUpdate,
 	})
