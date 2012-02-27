@@ -21,6 +21,10 @@ _pacgo()
           ;;
         -G)
           ;;
+        -Su|-Syu)
+          _pacman
+          COMPREPLY=($(compgen -W "${COMPREPLY[*]} --upvcs" -- "$cur"))
+          ;;
         *)
           _pacman
           ;;
