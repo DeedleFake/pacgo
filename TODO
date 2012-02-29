@@ -3,7 +3,6 @@ Handle provided packages better.
 Handle packages of specific versions.
 
 Find ways to speed up basically everything.
-	Doing AUR updates is especially slow right now.
 
 Do better caching of AUR packages.
 	Handle partially built packages in TmpDir.
@@ -11,3 +10,5 @@ Do better caching of AUR packages.
 Add support for vcs packages.
 
 Support --ignore and related options in pacman.conf.
+
+Add support for checkdepends, based on the setting in makepkg.conf.

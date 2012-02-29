@@ -7,8 +7,10 @@ _pacgo()
   local cur=`_get_cword`
   local cmd="${COMP_WORDS[1]}"
 
-  local cmds=(-Syu -Scc -Ss -G
-              -Su -Si -S -M -Ssq)
+  local cmds=(-S -Su -Syu -Scc -Ss -Ssq -Si
+              -M -Mi
+              -G
+              --help)
 
   case "$COMP_CWORD" in
     1)
@@ -19,11 +21,17 @@ _pacgo()
         -M)
           _makepkg
           ;;
+        -Mi)
+          _filedir
+          ;;
         -G)
           ;;
         -Su|-Syu)
           _pacman
           COMPREPLY=($(compgen -W "${COMPREPLY[*]} --upvcs" -- "$cur"))
+          ;;
+        --help)
+          COMPREPLY=($(compgen -W "${cmds[*]}" -- "$cur"))
           ;;
         *)
           _pacman

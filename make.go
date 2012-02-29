@@ -56,4 +56,45 @@ dependencies unless given the -s (or --syncdeps) flag.
 			return nil
 		},
 	})
+
+	RegisterCmd("-Mi", &Cmd{
+		Help:      "Print pacman-like info message about local PKGBUILDs.",
+		UsageLine: "-Mi [PKGBUILDs...]",
+		HelpMore: `-Mi scans PKGBUILDs, defaulting to ./PKGBUILD if none are specified,
+and prints pacman -Qi like info about them.
+`,
+		Run: func(args ...string) error {
+			if len(args) == 1 {
+				args = append(args, "PKGBUILD")
+			}
+
+			for _, arg := range args[1:] {
+				file, err := os.Open(arg)
+				if err != nil {
+					Cprintf("[c7]error:[ce] %v\n", err)
+					continue
+				}
+
+				pb, err := ParsePkgbuild(file)
+				if err != nil {
+					Cprintf("[c7]error:[ce] Failed to parse %v: %v\n", arg, err)
+					continue
+				}
+
+				pkg, err := NewPkgbuildPkg(pb)
+				if err != nil {
+					Cprintf("[c7]error:[ce] %v\n", err)
+					continue
+				}
+
+				err = pkg.Info()
+				if err != nil {
+					Cprintf("[c7]error:[ce] %v\n", err)
+					continue
+				}
+			}
+
+			return nil
+		},
+	})
 }

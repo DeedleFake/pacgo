@@ -535,19 +535,44 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 }
 
 func (p *AURPkg) Info(args ...string) error {
+	installscript := "No"
+	if p.pkgbuild.HasInstall() {
+		installscript = "Yes"
+	}
+
 	Cprintf("[c1]Repository     : [c3]aur[ce]\n")
 	Cprintf("[c1]Name           : %v[ce]\n", p.info.GetInfo("Name"))
 	Cprintf("[c1]Version        : [c2]%v[ce]\n", p.info.GetInfo("Version"))
 	Cprintf("[c1]URL            : [c4]%v[ce]\n", p.info.GetInfo("URL"))
 	Cprintf("[c1]Licenses       :[ce] %v\n", p.info.GetInfo("License"))
-	Cprintf("[c1]Depends On     :[ce] %v\n", strings.Join(p.pkgbuild.Deps, " "))
-	Cprintf("[c1]Make Depends   :[ce] %v\n", strings.Join(p.pkgbuild.MakeDeps, " "))
+	Cprintf("[c1]Groups         :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Groups, " ")),
+	)
+	Cprintf("[c1]Provides       :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Provides, " ")),
+	)
+	Cprintf("[c1]Depends On     :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Deps, " ")),
+	)
+	Cprintf("[c1]Make Depends   :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.MakeDeps, " ")),
+	)
+	Cprintf("[c1]Check Depends  :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.CheckDeps, " ")),
+	)
 	Cprintf("[c1]Optional Deps  :[ce] %v\n",
 		strings.Join(p.pkgbuild.OptDeps, "\n                 "),
 	)
-	Cprintf("[c1]Conflicts With :[ce] %v\n", strings.Join(p.pkgbuild.Conflicts, " "))
-	Cprintf("[c1]Replaces       :[ce] %v\n", strings.Join(p.pkgbuild.Replaces, " "))
-	Cprintf("[c1]Architecture   :[ce] %v\n", strings.Join(p.pkgbuild.Arch, " "))
+	Cprintf("[c1]Conflicts With :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Conflicts, " ")),
+	)
+	Cprintf("[c1]Replaces       :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Replaces, " ")),
+	)
+	Cprintf("[c1]Architecture   :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Arch, " ")),
+	)
+	Cprintf("[c1]Install Script :[ce] %v\n", installscript)
 	Cprintf("[c1]Description    :[ce] %v\n", p.info.GetInfo("Description"))
 	fmt.Println()
 
@@ -690,6 +715,52 @@ argloop:
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (p *PkgbuildPkg) Info(args ...string) error {
+	ver, err := p.Version()
+	if err != nil {
+		return err
+	}
+
+	Cprintf("[c1]Name           : %v[ce]\n", p.pkgbuild.Name)
+	Cprintf("[c1]Version        : [c2]%v[ce]\n", ver)
+	Cprintf("[c1]URL            : [c4]%v[ce]\n", p.pkgbuild.URL)
+	Cprintf("[c1]Licenses       :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Licenses, " ")),
+	)
+	Cprintf("[c1]Groups         :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Groups, " ")),
+	)
+	Cprintf("[c1]Provides       :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Provides, " ")),
+	)
+	Cprintf("[c1]Depends On     :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Deps, " ")),
+	)
+	Cprintf("[c1]Make Depends   :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.MakeDeps, " ")),
+	)
+	Cprintf("[c1]Check Depends  :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.CheckDeps, " ")),
+	)
+	Cprintf("[c1]Optional Deps  :[ce] %v\n",
+		strings.Join(p.pkgbuild.OptDeps, "\n                 "),
+	)
+	Cprintf("[c1]Conflicts With :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Conflicts, " ")),
+	)
+	Cprintf("[c1]Replaces       :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Replaces, " ")),
+	)
+	Cprintf("[c1]Architecture   :[ce] %v\n",
+		strings.TrimSpace(strings.Join(p.pkgbuild.Arch, " ")),
+	)
+	Cprintf("[c1]Install Script :[ce] %v\n", p.pkgbuild.InstallScript())
+	Cprintf("[c1]Description    :[ce] %v\n", p.pkgbuild.Description)
+	fmt.Println()
 
 	return nil
 }

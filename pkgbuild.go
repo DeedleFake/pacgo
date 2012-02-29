@@ -37,37 +37,60 @@ const pkgbuildScan = `echo "name:$pkgname"
 echo "ver:$pkgver"
 echo "rel:$pkgrel"
 echo "epoch:$epoch"
-echo "install:$install"
+echo "url:$url"
 
-echo "deplen:${#depends[@]}"
-for ((i=0; i<${#depends[@]}; i++)); do
+echo "licenselen:${#license[*]}"
+for ((i=0; i<${#license}; i++)); do
+	echo "license:${license[i]}"
+done
+
+echo "grouplen:${#groups[*]}"
+for ((i=0; i<${#groups[*]}; i++)); do
+	echo "group:${groups[i]}"
+done
+
+echo "providelen:${#provides[*]}"
+for ((i=0; i<${#provides[*]}; i++)); do
+	echo "provide:${provides[i]}"
+done
+
+echo "deplen:${#depends[*]}"
+for ((i=0; i<${#depends[*]}; i++)); do
 	echo "dep:${depends[i]}"
 done
 
-echo "makedeplen:${#makedepends[@]}"
-for ((i=0; i<${#makedepends[@]}; i++)); do
+echo "makedeplen:${#makedepends[*]}"
+for ((i=0; i<${#makedepends[*]}; i++)); do
 	echo "makedep:${makedepends[i]}"
 done
 
-echo "optdeplen:${#optdeplen[@]}"
-for ((i=0; i<${#optdepends[@]}; i++)); do
+echo "checkdeplen:${#checkdepends[*]}"
+for ((i=0; i<${#checkdepends[*]}; i++)); do
+	echo "checkdep:${checkdepends[i]}"
+done
+
+echo "optdeplen:${#optdeplen[*]}"
+for ((i=0; i<${#optdepends[*]}; i++)); do
 	echo "optdep:${optdepends[i]}"
 done
 
-echo "conflictlen:${#conflicts[@]}"
+echo "conflictlen:${#conflicts[*]}"
 for ((i=0; i<${#conflicts}; i++)); do
 	echo "conflict:${conflicts[i]}"
 done
 
-echo "repllen:${#replaces[@]}"
+echo "repllen:${#replaces[*]}"
 for ((i=0; i<${#replaces}; i++)); do
 	echo "repl:${replaces[i]}"
 done
 
-echo "archlen:${#arch[@]}"
+echo "archlen:${#arch[*]}"
 for ((i=0; i<${#arch}; i++)); do
 	echo "arch:${arch[i]}"
 done
+
+echo "install:$install"
+echo "desc:$pkgdesc"
 
 if [[ -n "$_darcstrunk" && -n "$_darcsmod" ]]; then
 	echo "vcs:darcs"
@@ -88,18 +111,24 @@ exit
 
 // Pkgbuild represents a PKGBUILD.
 type Pkgbuild struct {
-	Name      string
-	Version   string
-	Release   int
-	Epoch     int
-	Install   string
-	Deps      []string
-	MakeDeps  []string
-	OptDeps   []string
-	Conflicts []string
-	Replaces  []string
-	Arch      []string
-	VCS       string
+	Name        string
+	Version     string
+	Release     int
+	Epoch       int
+	URL         string
+	Licenses    []string
+	Groups      []string
+	Provides    []string
+	Deps        []string
+	MakeDeps    []string
+	CheckDeps   []string
+	OptDeps     []string
+	Conflicts   []string
+	Replaces    []string
+	Arch        []string
+	Install     string
+	Description string
+	VCS         string
 
 	//Raw []byte
 }
@@ -167,11 +196,10 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		return nil, err
 	}
 
-	out, err := ioutil.ReadAll(outpipe)
+	lines, err := ReadLines(outpipe, true)
 	if err != nil {
 		return nil, err
 	}
-	out = bytes.TrimSpace(out)
 
 	err = cmd.Wait()
 	if err != nil {
@@ -180,14 +208,13 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 
 	pb := new(Pkgbuild)
 
-	lines := bytes.Split(out, []byte{'\n'})
 	for _, line := range lines {
 		parts := bytes.SplitN(line, []byte{':'}, 2)
 		switch string(parts[0]) {
 		case "name":
-			pb.Name = string(parts[1])
+			pb.Name = string(bytes.TrimSpace(parts[1]))
 		case "ver":
-			pb.Version = string(parts[1])
+			pb.Version = string(bytes.TrimSpace(parts[1]))
 		case "rel":
 			rel, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -196,7 +223,7 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			}
 			pb.Release = int(rel)
 		case "epoch":
-			if str := string(parts[1]); str == "" {
+			if str := string(bytes.TrimSpace(parts[1])); str == "" {
 				pb.Epoch = 0
 			} else {
 				epoch, err := strconv.ParseInt(str, 10, 0)
@@ -206,8 +233,41 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 				}
 				pb.Epoch = int(epoch)
 			}
-		case "install":
-			pb.Install = string(parts[1])
+		case "url":
+			pb.URL = string(bytes.TrimSpace(parts[1]))
+		case "licenselen":
+			licenselen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad licenselen: %v.", ne.Num)
+			}
+			pb.Licenses = make([]string, licenselen)
+		case "license":
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.Licenses = append(pb.Licenses, str)
+			}
+		case "grouplen":
+			grouplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad grouplen: %v.", ne.Num)
+			}
+			pb.Groups = make([]string, grouplen)
+		case "group":
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.Groups = append(pb.Groups, str)
+			}
+		case "providelen":
+			providelen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad providelen: %v.", ne.Num)
+			}
+			pb.Provides = make([]string, providelen)
+		case "provide":
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.Provides = append(pb.Provides, str)
+			}
 		case "deplen":
 			deplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -216,7 +276,9 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			}
 			pb.Deps = make([]string, 0, deplen)
 		case "dep":
-			pb.Deps = append(pb.Deps, string(parts[1]))
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.Deps = append(pb.Deps, str)
+			}
 		case "makedeplen":
 			makedeplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -225,7 +287,20 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			}
 			pb.MakeDeps = make([]string, 0, makedeplen)
 		case "makedep":
-			pb.MakeDeps = append(pb.MakeDeps, string(parts[1]))
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.MakeDeps = append(pb.MakeDeps, str)
+			}
+		case "checkdeplen":
+			checkdeplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
+			if err != nil {
+				ne := err.(*strconv.NumError)
+				return nil, fmt.Errorf("Got bad checkdeplen: %v.", ne.Num)
+			}
+			pb.CheckDeps = make([]string, 0, checkdeplen)
+		case "checkdep":
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.CheckDeps = append(pb.CheckDeps, str)
+			}
 		case "optdeplen":
 			optdeplen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -234,7 +309,9 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			}
 			pb.OptDeps = make([]string, 0, optdeplen)
 		case "optdep":
-			pb.OptDeps = append(pb.OptDeps, string(parts[1]))
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.OptDeps = append(pb.OptDeps, str)
+			}
 		case "conflictlen":
 			conflictlen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -243,7 +320,9 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			}
 			pb.Conflicts = make([]string, 0, conflictlen)
 		case "conflict":
-			pb.Conflicts = append(pb.Conflicts, string(parts[1]))
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.Conflicts = append(pb.Conflicts, str)
+			}
 		case "repllen":
 			repllen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -252,7 +331,9 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			}
 			pb.Replaces = make([]string, 0, repllen)
 		case "repl":
-			pb.Replaces = append(pb.Replaces, string(parts[1]))
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.Replaces = append(pb.Replaces, str)
+			}
 		case "archlen":
 			archlen, err := strconv.ParseInt(string(parts[1]), 10, 0)
 			if err != nil {
@@ -261,28 +342,46 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 			}
 			pb.Arch = make([]string, 0, archlen)
 		case "arch":
-			pb.Arch = append(pb.Arch, string(parts[1]))
+			if str := string(bytes.TrimSpace(parts[1])); str != "" {
+				pb.Arch = append(pb.Arch, str)
+			}
+		case "install":
+			pb.Install = string(bytes.TrimSpace(parts[1]))
+		case "desc":
+			pb.Description = string(bytes.TrimSpace(parts[1]))
 		case "vcs":
-			pb.VCS = string(parts[1])
+			pb.VCS = string(bytes.TrimSpace(parts[1]))
 		}
 	}
 
-	if pb.Deps == nil {
+	if len(pb.Licenses) == 0 {
+		pb.Licenses = []string{"None"}
+	}
+	if len(pb.Groups) == 0 {
+		pb.Groups = []string{"None"}
+	}
+	if len(pb.Provides) == 0 {
+		pb.Provides = []string{"None"}
+	}
+	if len(pb.Deps) == 0 {
 		pb.Deps = []string{"None"}
 	}
-	if pb.MakeDeps == nil {
+	if len(pb.MakeDeps) == 0 {
 		pb.MakeDeps = []string{"None"}
 	}
-	if pb.OptDeps == nil {
+	if len(pb.CheckDeps) == 0 {
+		pb.CheckDeps = []string{"None"}
+	}
+	if len(pb.OptDeps) == 0 {
 		pb.OptDeps = []string{"None"}
 	}
-	if pb.Conflicts == nil {
+	if len(pb.Conflicts) == 0 {
 		pb.Conflicts = []string{"None"}
 	}
-	if pb.Replaces == nil {
+	if len(pb.Replaces) == 0 {
 		pb.Replaces = []string{"None"}
 	}
-	if pb.Arch == nil {
+	if len(pb.Arch) == 0 {
 		return nil, errors.New("PKGBUILD doesn't have an arch.")
 	}
 
@@ -307,6 +406,17 @@ func (p *Pkgbuild) HasDeps() bool {
 // HasInstall returns true if the *Pkgbuild specifies an install script.
 func (p *Pkgbuild) HasInstall() bool {
 	return p.Install != ""
+}
+
+// InstallScript is a convienece function that is used for printing
+// PKGBUILD info. If p.Install is blank, it returns "None", otherwise
+// it returns p.Install.
+func (p *Pkgbuild) InstallScript() string {
+	if p.Install == "" {
+		return "None"
+	}
+
+	return p.Install
 }
 
 // LocalArch returns the arch string for the *Pkgbuild that a package built on the local machine using the PKGBUILD would be likely to have.
