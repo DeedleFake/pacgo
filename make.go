@@ -18,6 +18,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 )
 
@@ -39,7 +40,7 @@ dependencies unless given the -s (or --syncdeps) flag.
 
 			pb, err := ParsePkgbuild(file)
 			if err != nil {
-				return err
+				return errors.New("Error parsing PKGBUILD: " + err.Error())
 			}
 
 			pkg, err := NewPkgbuildPkg(pb)

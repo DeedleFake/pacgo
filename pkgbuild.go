@@ -23,7 +23,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
+	"os/user"
+	"path/filepath"
 	"runtime"
 	"strconv"
 )
@@ -123,12 +126,38 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		return nil, err
 	}
 
-	raw, err := ioutil.ReadAll(r)
+	buf, err := ioutil.ReadFile("/etc/makepkg.conf")
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = inpipe.Write(raw)
+	_, err = inpipe.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := user.Current()
+	if err == nil {
+		hmc := filepath.Join(u.HomeDir, ".makepkg.conf")
+		if _, err := os.Stat(hmc); err == nil {
+			buf, err = ioutil.ReadFile(hmc)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = inpipe.Write(buf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	buf, err = ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = inpipe.Write(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +286,7 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		return nil, errors.New("PKGBUILD doesn't have an arch.")
 	}
 
-	//pb.Raw = raw
+	//pb.Raw = buf
 
 	return pb, nil
 }

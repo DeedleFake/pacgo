@@ -344,7 +344,7 @@ func NewAURPkg(info RPCResult) (*AURPkg, error) {
 
 	pb, err := ParsePkgbuild(rsp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error parsing %v's PKGBUILD: %v", info.GetInfo("Name"), err)
 	}
 
 	return &AURPkg{
