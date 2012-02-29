@@ -589,7 +589,9 @@ func ListForeignPkgs() ([]string, error) {
 
 	list := make([]string, 0, len(lines))
 	for _, line := range lines {
-		list = append(list, string(line))
+		if len(line) != 0 {
+			list = append(list, string(line))
+		}
 	}
 
 	return list, nil
