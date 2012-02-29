@@ -145,6 +145,39 @@ func PacmanOutput(args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
+// PacmanLines returns a [][]byte containing the lines output by
+// running pacman with the given args. trim is passed through to
+// ReadLines(). If it encounters any errors, it returns nil and the
+// error.
+func PacmanLines(trim bool, args ...string) ([][]byte, error) {
+	cmd := &exec.Cmd{
+		Path: PacmanPath,
+		Args: append([]string{path.Base(PacmanPath)}, args...),
+	}
+
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	lines, err := ReadLines(out, trim)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	return lines, nil
+}
+
 // MakepkgIn runs makepkg in the given dir, passing the given args to
 // it. It returns an error, if any.
 func MakepkgIn(dir string, args ...string) error {

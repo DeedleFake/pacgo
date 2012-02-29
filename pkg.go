@@ -575,26 +575,24 @@ func NewLocalPkg(name string) (*LocalPkg, error) {
 	}, nil
 }
 
-// ListLocalPkgs returns either a slice containing all installed
-// foreign packages and nil, or nil and an error, if any.
-func ListLocalPkgs() ([]*LocalPkg, error) {
-	list, err := PacmanOutput("-Qqm")
+// ListForeignPkgs returns either a slice containing the names of all
+// installed foreign packages and nil, or nil and an error, if any.
+func ListForeignPkgs() ([]string, error) {
+	lines, err := PacmanLines(true, "-Qqm")
 	if err != nil {
 		return nil, err
 	}
-	list = bytes.TrimSpace(list)
 
-	lines := bytes.Split(list, []byte{'\n'})
-	pkgs := make([]*LocalPkg, 0, len(lines))
-	for _, line := range lines {
-		pkg, err := NewLocalPkg(string(line))
-		if err != nil {
-			return nil, err
-		}
-		pkgs = append(pkgs, pkg)
+	if len(lines) == 0 {
+		return nil, nil
 	}
 
-	return pkgs, nil
+	list := make([]string, 0, len(lines))
+	for _, line := range lines {
+		list = append(list, string(line))
+	}
+
+	return list, nil
 }
 
 func (p *LocalPkg) Name() string {

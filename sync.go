@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -176,7 +177,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 		errc := make(chan error)
 		if pkgs == nil {
 			go func() {
-				pkgs, err := ListLocalPkgs()
+				fpkgs, err := ListForeignPkgs()
 				if err != nil {
 					ac <- nil
 					errc <- err
@@ -184,39 +185,60 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 				}
 
 				var aurpkgs []Pkg
-				for _, pkg := range pkgs {
-					if info, ok := InAUR(pkg.Name()); ok {
-						aurpkg, err := NewAURPkg(info)
-						if err != nil {
-							ac <- nil
-							errc <- err
-							return
-						}
-						if (UpdateVCS) && (aurpkg.IsVCS()) {
-							aurpkgs = append(aurpkgs, aurpkg)
-						} else {
-							ver1, err := aurpkg.Version()
+				var apl sync.Mutex
+				var wg sync.WaitGroup
+				for _, pkg := range fpkgs {
+					wg.Add(1)
+					go func(pkg string) {
+						defer wg.Done()
+
+						if info, ok := InAUR(pkg); ok {
+							apkg, err := NewAURPkg(info)
 							if err != nil {
 								ac <- nil
 								errc <- err
 								return
 							}
-							ver2, err := pkg.Version()
-							if err != nil {
-								ac <- nil
-								errc <- err
-								return
-							}
-							if up, err := Newer(ver1, ver2); (err == nil) && up {
-								aurpkgs = append(aurpkgs, aurpkg)
-							} else if err != nil {
-								ac <- nil
-								errc <- err
-								return
+							if (UpdateVCS) && (apkg.IsVCS()) {
+								apl.Lock()
+								aurpkgs = append(aurpkgs, apkg)
+								apl.Unlock()
+							} else {
+								lpkg, err := NewLocalPkg(pkg)
+								if err != nil {
+									ac <- nil
+									errc <- err
+									return
+								}
+
+								ver1, err := apkg.Version()
+								if err != nil {
+									ac <- nil
+									errc <- err
+									return
+								}
+								ver2, err := lpkg.Version()
+								if err != nil {
+									ac <- nil
+									errc <- err
+									return
+								}
+								up, err := Newer(ver1, ver2)
+								if err != nil {
+									ac <- nil
+									errc <- err
+									return
+								}
+								if up {
+									apl.Lock()
+									aurpkgs = append(aurpkgs, apkg)
+									apl.Unlock()
+								}
 							}
 						}
-					}
+					}(pkg)
 				}
+				wg.Wait()
 
 				ac <- aurpkgs
 				errc <- nil
@@ -249,6 +271,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 
 			if aurpkgs == nil {
 				Cprintf(" there is nothing to do\n")
+				return nil
 			}
 
 			fmt.Println()
