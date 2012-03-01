@@ -11,5 +11,4 @@ Support --ignore and related options in pacman.conf.
 
 Add support for checkdepends, based on the setting in makepkg.conf.
 
-Calculating AUR updates freezes on certain packages (aur/jre). Figure
-	out why and fix it.
+Support custom makepkg.conf.

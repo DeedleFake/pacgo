@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -129,8 +128,6 @@ type Pkgbuild struct {
 	Install     string
 	Description string
 	VCS         string
-
-	//Raw []byte
 }
 
 // ParsePkgbuild parses a PKGBUILD read from r. It returns a *Pkgbuild
@@ -138,6 +135,7 @@ type Pkgbuild struct {
 func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 	cmd := &exec.Cmd{
 		Path: BashPath,
+		Args: []string{filepath.Base(BashPath), "--login"},
 	}
 
 	inpipe, err := cmd.StdinPipe()
@@ -155,12 +153,7 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		return nil, err
 	}
 
-	buf, err := ioutil.ReadFile("/etc/makepkg.conf")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = inpipe.Write(buf)
+	_, err = io.WriteString(inpipe, "source /etc/makepkg.conf\n")
 	if err != nil {
 		return nil, err
 	}
@@ -169,24 +162,20 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 	if err == nil {
 		hmc := filepath.Join(u.HomeDir, ".makepkg.conf")
 		if _, err := os.Stat(hmc); err == nil {
-			buf, err = ioutil.ReadFile(hmc)
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = inpipe.Write(buf)
+			_, err = io.WriteString(inpipe, "source '" + hmc + "'\n")
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	buf, err = ioutil.ReadAll(r)
+	_, err = io.Copy(inpipe, r)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = inpipe.Write(buf)
+	// Work around PKGBUILDs that don't end with a newline.
+	_, err = inpipe.Write([]byte{'\n'})
 	if err != nil {
 		return nil, err
 	}
@@ -385,14 +374,8 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 		return nil, errors.New("PKGBUILD doesn't have an arch.")
 	}
 
-	//pb.Raw = buf
-
 	return pb, nil
 }
-
-//func (p *Pkgbuild) WriteTo(w io.Writer) (int, error) {
-//	return w.Write(p.Raw)
-//}
 
 // HasDeps returns true if the *Pkgbuild has any deps.
 func (p *Pkgbuild) HasDeps() bool {
