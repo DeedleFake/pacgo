@@ -1,9 +1,12 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
 	"io"
+	"os"
+	"path/filepath"
 )
 
 type LineReader interface {
@@ -48,4 +51,41 @@ func ReadLines(r io.Reader, trim bool) ([][]byte, error) {
 	}
 
 	return lines, nil
+}
+
+// ExtractTar extracts the contents of tr to the given dir. It
+// returns an error, if any.
+func ExtractTar(dir string, tr *tar.Reader) error {
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if hdr.Typeflag == tar.TypeDir {
+			err = os.MkdirAll(filepath.Join(dir, hdr.Name), 0755)
+			if err != nil {
+				return err
+			}
+		} else {
+			file, err := os.OpenFile(filepath.Join(dir, hdr.Name),
+				os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+				os.FileMode(hdr.Mode),
+			)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(file, tr)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
