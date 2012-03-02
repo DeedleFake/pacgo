@@ -135,7 +135,7 @@ type Pkgbuild struct {
 func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 	cmd := &exec.Cmd{
 		Path: BashPath,
-		Args: []string{filepath.Base(BashPath), "--login"},
+		Args: []string{BashPath, "--login"},
 	}
 
 	inpipe, err := cmd.StdinPipe()

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"path"
 	"strings"
 )
 
@@ -112,7 +111,7 @@ func init() {
 func Pacman(args ...string) error {
 	cmd := &exec.Cmd{
 		Path: PacmanPath,
-		Args: append([]string{path.Base(PacmanPath)}, args...),
+		Args: append([]string{PacmanPath}, args...),
 
 		Stdout: os.Stdout,
 		Stdin:  os.Stdin,
@@ -128,7 +127,7 @@ func Pacman(args ...string) error {
 func SilentPacman(args ...string) error {
 	cmd := &exec.Cmd{
 		Path: PacmanPath,
-		Args: append([]string{path.Base(PacmanPath)}, args...),
+		Args: append([]string{PacmanPath}, args...),
 	}
 
 	return cmd.Run()
@@ -139,7 +138,7 @@ func SilentPacman(args ...string) error {
 func PacmanOutput(args ...string) ([]byte, error) {
 	cmd := &exec.Cmd{
 		Path: PacmanPath,
-		Args: append([]string{path.Base(PacmanPath)}, args...),
+		Args: append([]string{PacmanPath}, args...),
 	}
 
 	return cmd.Output()
@@ -152,7 +151,7 @@ func PacmanOutput(args ...string) ([]byte, error) {
 func PacmanLines(trim bool, args ...string) ([][]byte, error) {
 	cmd := &exec.Cmd{
 		Path: PacmanPath,
-		Args: append([]string{path.Base(PacmanPath)}, args...),
+		Args: append([]string{PacmanPath}, args...),
 	}
 
 	out, err := cmd.StdoutPipe()
@@ -183,7 +182,7 @@ func PacmanLines(trim bool, args ...string) ([][]byte, error) {
 func MakepkgIn(dir string, args ...string) error {
 	cmd := &exec.Cmd{
 		Path: MakepkgPath,
-		Args: append([]string{path.Base(MakepkgPath)}, args...),
+		Args: append([]string{MakepkgPath}, args...),
 		Dir:  dir,
 
 		Stdout: os.Stdout,
@@ -199,7 +198,7 @@ func MakepkgIn(dir string, args ...string) error {
 func VercmpOutput(args ...string) ([]byte, error) {
 	cmd := &exec.Cmd{
 		Path: VercmpPath,
-		Args: append([]string{path.Base(VercmpPath)}, args...),
+		Args: append([]string{VercmpPath}, args...),
 	}
 
 	return cmd.Output()
@@ -217,11 +216,11 @@ func AsRootPacman(args ...string) error {
 	var cmdargs []string
 	if Sudo {
 		cmdargs = make([]string, 0, len(args)+1)
-		cmdargs = append(cmdargs, path.Base(AsRootPath))
+		cmdargs = append(cmdargs, AsRootPath)
 		cmdargs = append(cmdargs, args...)
 	} else {
 		cmdargs = make([]string, 0, 3)
-		cmdargs = append(cmdargs, path.Base(AsRootPath), "-c")
+		cmdargs = append(cmdargs, AsRootPath, "-c")
 		cmdargs = append(cmdargs, strings.Join(args, " "))
 	}
 
@@ -249,7 +248,7 @@ func Edit(args ...string) error {
 
 	cmd := &exec.Cmd{
 		Path: EditPath,
-		Args: append([]string{path.Base(EditPath)}, args...),
+		Args: append([]string{EditPath}, args...),
 
 		Stdout: os.Stdout,
 		Stdin:  os.Stdin,
