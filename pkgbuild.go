@@ -162,7 +162,7 @@ func ParsePkgbuild(r io.Reader) (*Pkgbuild, error) {
 	if err == nil {
 		hmc := filepath.Join(u.HomeDir, ".makepkg.conf")
 		if _, err := os.Stat(hmc); err == nil {
-			_, err = io.WriteString(inpipe, "source '" + hmc + "'\n")
+			_, err = io.WriteString(inpipe, "source '"+hmc+"'\n")
 			if err != nil {
 				return nil, err
 			}
