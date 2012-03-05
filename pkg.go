@@ -115,7 +115,7 @@ func NewRemotePkg(name string) (Pkg, error) {
 
 // InLocal returns true if the named package is installed.
 func InLocal(name string) bool {
-	err := SilentPacman("-Qi", name)
+	err := SilentPacman("-Q", "--", name)
 	if err != nil {
 		return false
 	}
@@ -126,7 +126,7 @@ func InLocal(name string) bool {
 // InPacman returns true if the named package was found in the sync
 // database.
 func InPacman(name string) bool {
-	err := SilentPacman("-Si", name)
+	err := SilentPacman("-Si", "--", name)
 	if err != nil {
 		return false
 	}

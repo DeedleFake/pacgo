@@ -89,3 +89,22 @@ func ExtractTar(dir string, tr *tar.Reader) error {
 
 	return nil
 }
+
+// SplitArgs is a convience function that seperates pkgs from other
+// arguments.
+func SplitArgs(args ...string) (pacargs []string, pkgs []string) {
+	for i, arg := range args {
+		if arg == "--" {
+			pkgs = append(pkgs, args[i+1:]...)
+			break
+		}
+
+		if arg[0] == '-' {
+			pacargs = append(pacargs, arg)
+		} else {
+			pkgs = append(pkgs, arg)
+		}
+	}
+
+	return
+}

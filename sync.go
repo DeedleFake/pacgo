@@ -18,7 +18,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,18 +30,24 @@ func init() {
 	RegisterCmd("-S", &Cmd{
 		Help:      "Install packages from a repo or the AUR.",
 		UsageLine: "-S [pacman opts] <packages>",
-		HelpMore: `-S installs the listes packages, first getting everything it can from
+		HelpMore: `-S installs the listed packages, first getting everything it can from
 pacman, and then installing any packages it can find in the AUR. It
 will fail if it can't find a package. All options are passed straight
 through to pacman.
 `,
 		Run: func(args ...string) error {
-			pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
-			if err != nil {
-				return err
+			args, pkgargs := SplitArgs(args[1:]...)
+
+			pkgs := make([]Pkg, 0, len(pkgargs))
+			for _, pkgarg := range pkgargs {
+				pkg, err := NewRemotePkg(pkgarg)
+				if err != nil {
+					return err
+				}
+				pkgs = append(pkgs, pkg)
 			}
 
-			return InstallPkgs(pacargs, pkgs)
+			return InstallPkgs(args, pkgs)
 		},
 	})
 
@@ -57,12 +62,29 @@ in the AUR. Unlike pacman, it will fail if given no arguments.
 				return PrintUsageError
 			}
 
-			pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
-			if err != nil {
-				return err
+			args, pkgargs := SplitArgs(args[1:]...)
+
+			for _, pkgarg := range pkgargs {
+				pkg, err := NewRemotePkg(pkgarg)
+				if err != nil {
+					if pnfe, ok := err.(PkgNotFoundError); ok {
+						Cprintf("[c7]error:[ce] package '%v' was not found\n", pnfe.PkgName)
+					} else {
+						return err
+					}
+				}
+
+				if ip, ok := pkg.(InfoPkg); ok {
+					err = ip.Info(args...)
+					if err != nil {
+						return err
+					}
+				} else {
+					Cprintf("[c7]error:[ce] Don't know how to get info for '%v'\n", pkg.Name())
+				}
 			}
 
-			return InfoPkgs(pacargs, pkgs)
+			return nil
 		},
 	})
 
@@ -164,148 +186,130 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 	})
 
 	runUpdate := func(args ...string) error {
-		pacargs, pkgs, err := ParseSyncArgs(args[1:]...)
-		if err != nil {
-			return err
-		}
-
-		if pkgs != nil {
-			return errors.New("Using " + args[0] + " with specific packages is not yet supported.")
-		}
+		pacargs, _ := SplitArgs(args[1:]...)
 
 		ac := make(chan []Pkg)
 		errc := make(chan error)
-		if pkgs == nil {
-			go func() {
-				fpkgs, err := ListForeignPkgs()
-				if err != nil {
-					ac <- nil
-					errc <- err
-					return
-				}
+		go func() {
+			fpkgs, err := ListForeignPkgs()
+			if err != nil {
+				ac <- nil
+				errc <- err
+				return
+			}
 
-				var aurpkgs []Pkg
-				var apl sync.Mutex
-				var wg sync.WaitGroup
-				for _, pkg := range fpkgs {
-					wg.Add(1)
-					go func(pkg string) {
-						defer wg.Done()
+			var aurpkgs []Pkg
+			var apl sync.Mutex
+			var wg sync.WaitGroup
+			for _, pkg := range fpkgs {
+				wg.Add(1)
+				go func(pkg string) {
+					defer wg.Done()
 
-						if info, ok := InAUR(pkg); ok {
-							apkg, err := NewAURPkg(info)
+					if info, ok := InAUR(pkg); ok {
+						apkg, err := NewAURPkg(info)
+						if err != nil {
+							ac <- nil
+							errc <- err
+							return
+						}
+						if (UpdateVCS) && (apkg.IsVCS()) {
+							apl.Lock()
+							aurpkgs = append(aurpkgs, apkg)
+							apl.Unlock()
+						} else {
+							lpkg, err := NewLocalPkg(pkg)
 							if err != nil {
 								ac <- nil
 								errc <- err
 								return
 							}
-							if (UpdateVCS) && (apkg.IsVCS()) {
+
+							ver1, err := apkg.Version()
+							if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
+							ver2, err := lpkg.Version()
+							if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
+							up, err := Newer(ver1, ver2)
+							if err != nil {
+								ac <- nil
+								errc <- err
+								return
+							}
+							if up {
 								apl.Lock()
 								aurpkgs = append(aurpkgs, apkg)
 								apl.Unlock()
-							} else {
-								lpkg, err := NewLocalPkg(pkg)
-								if err != nil {
-									ac <- nil
-									errc <- err
-									return
-								}
-
-								ver1, err := apkg.Version()
-								if err != nil {
-									ac <- nil
-									errc <- err
-									return
-								}
-								ver2, err := lpkg.Version()
-								if err != nil {
-									ac <- nil
-									errc <- err
-									return
-								}
-								up, err := Newer(ver1, ver2)
-								if err != nil {
-									ac <- nil
-									errc <- err
-									return
-								}
-								if up {
-									apl.Lock()
-									aurpkgs = append(aurpkgs, apkg)
-									apl.Unlock()
-								}
 							}
 						}
-					}(pkg)
-				}
-				wg.Wait()
+					}
+				}(pkg)
+			}
+			wg.Wait()
 
-				ac <- aurpkgs
-				errc <- nil
-			}()
+			ac <- aurpkgs
+			errc <- nil
+		}()
+
+		err := AsRootPacman(append([]string{args[0]}, pacargs...)...)
+		if err != nil {
+			<-ac
+			<-errc
+			return err
 		}
 
-		if pkgs == nil {
-			err := AsRootPacman(append([]string{args[0]}, pacargs...)...)
-			if err != nil {
-				<-ac
-				<-errc
-				return err
-			}
-		} else {
-			err := InstallPkgs(args[1:], pkgs)
-			if err != nil {
-				return err
-			}
+		fmt.Println()
+		Cprintf("[c5]:: [c1]Calculating AUR updates...[ce]\n")
+
+		aurpkgs := <-ac
+		err = <-errc
+		if err != nil {
+			return err
 		}
 
-		if pkgs == nil {
-			fmt.Println()
-			Cprintf("[c5]:: [c1]Calculating AUR updates...[ce]\n")
+		if aurpkgs == nil {
+			Cprintf(" there is nothing to do\n")
+			return nil
+		}
 
-			aurpkgs := <-ac
-			err = <-errc
-			if err != nil {
-				return err
-			}
+		fmt.Println()
+		Cprintf("[c6]Targets (%v):[ce]", len(aurpkgs))
+		for _, pkg := range aurpkgs {
+			Cprintf(" %v", pkg.Name())
+		}
+		Cprintf("\n\n")
+		answer, err := Caskf(true, "", "Proceed with installation?")
+		if err != nil {
+			return err
+		}
+		if !answer {
+			return nil
+		}
 
-			if aurpkgs == nil {
-				Cprintf(" there is nothing to do\n")
-				return nil
-			}
-
-			fmt.Println()
-			Cprintf("[c6]Targets (%v):[ce]", len(aurpkgs))
-			for _, pkg := range aurpkgs {
-				Cprintf(" %v", pkg.Name())
-			}
-			Cprintf("\n\n")
-			answer, err := Caskf(true, "", "Proceed with installation?")
-			if err != nil {
-				return err
-			}
-			if !answer {
-				return nil
-			}
-
-			for _, pkg := range aurpkgs {
-				if ip, ok := pkg.(InstallPkg); ok {
-					isdep, err := IsDep(pkg.Name())
-					if err != nil {
-						return err
-					}
-					asdeps := ""
-					if isdep {
-						asdeps = "--asdeps"
-					}
-
-					err = ip.Install(nil, asdeps)
-					if err != nil {
-						Cprintf("[c6]warning:[ce] %v failed: %v\n", ip.Name(), err)
-					}
-				} else {
-					return fmt.Errorf("Don't know how to install %v.", pkg.Name())
+		for _, pkg := range aurpkgs {
+			if ip, ok := pkg.(InstallPkg); ok {
+				isdep, err := IsDep(pkg.Name())
+				if err != nil {
+					return err
 				}
+				asdeps := ""
+				if isdep {
+					asdeps = "--asdeps"
+				}
+
+				err = ip.Install(nil, asdeps)
+				if err != nil {
+					Cprintf("[c6]warning:[ce] %v failed: %v\n", ip.Name(), err)
+				}
+			} else {
+				return fmt.Errorf("Don't know how to install %v.", pkg.Name())
 			}
 		}
 
@@ -321,7 +325,7 @@ downloads and installs them.
 -Su also takes these non-pacman options:
 	--upvcs: Update VCS AUR packages.
 
-It is not yet capable of updating specific packages, but this
+It is not capable of updating specific packages, but this
 functionality is intended.
 
 See also: -Syu
@@ -374,23 +378,4 @@ accepts no arguments.
 			return nil
 		},
 	})
-}
-
-// ParseSyncArgs is a convience function that seperates pkgs from
-// other arguments. If it encounters an error, it returns nil, nil,
-// and the error.
-func ParseSyncArgs(args ...string) (pacargs []string, pkgs []Pkg, err error) {
-	for _, arg := range args {
-		if arg[0] == '-' {
-			pacargs = append(pacargs, arg)
-		} else {
-			pkg, err := NewRemotePkg(arg)
-			if err != nil {
-				return nil, nil, err
-			}
-			pkgs = append(pkgs, pkg)
-		}
-	}
-
-	return
 }
