@@ -10,6 +10,7 @@ _pacgo()
   local cmds=(-S -Su -Syu -Scc -Ss -Ssq -Si
               -M -Mi
               -G
+              -V
               --help)
 
   case "$COMP_CWORD" in

@@ -69,6 +69,7 @@ in the AUR. Unlike pacman, it will fail if given no arguments.
 				if err != nil {
 					if pnfe, ok := err.(PkgNotFoundError); ok {
 						Cprintf("[c7]error:[ce] package '%v' was not found\n", pnfe.PkgName)
+						continue
 					} else {
 						return err
 					}
@@ -81,6 +82,7 @@ in the AUR. Unlike pacman, it will fail if given no arguments.
 					}
 				} else {
 					Cprintf("[c7]error:[ce] Don't know how to get info for '%v'\n", pkg.Name())
+					continue
 				}
 			}
 
