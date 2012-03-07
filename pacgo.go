@@ -129,34 +129,11 @@ var (
 	PrintUsageError = UsageError{""}
 )
 
-var (
-	// Whether or not development package updates should be forced.
-	//
-	// TODO: Implement this.
-	UpdateVCS bool
-)
-
-func parseArgs() {
-	var found int
-	for i := range os.Args {
-		switch os.Args[i] {
-		case "--upvcs":
-			found = i
-		}
-	}
-	if found > 0 {
-		UpdateVCS = true
-		os.Args = append(os.Args[:found], os.Args[found+1:]...)
-	}
-}
-
 func main() {
 	if os.Getuid() == 0 {
 		Cprintf("[c7]error:[ce] Can't run as root.\n")
 		os.Exit(1)
 	}
-
-	parseArgs()
 
 	if len(os.Args) == 1 {
 		Usage("")

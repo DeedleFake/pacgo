@@ -27,6 +27,41 @@ import (
 )
 
 func init() {
+	var flags struct {
+		// Whether or not development package updates should be forced.
+		UpdateVCS bool
+	}
+
+	parseFlags := func(args []string) []string {
+		for {
+			var found bool
+			var which int
+		argloop:
+			for i := range args[which:] {
+				switch args[i] {
+				case "--upvcs":
+					flags.UpdateVCS = true
+					which = i
+					found = true
+					break argloop
+				}
+			}
+
+			if found {
+				args = append(args[:which], args[which+1:]...)
+				found = false
+			} else {
+				if len(args) == 0 {
+					return nil
+				}
+
+				return args
+			}
+		}
+
+		panic("Should never reach this point.")
+	}
+
 	RegisterCmd("-S", &Cmd{
 		Help:      "Install packages from a repo or the AUR.",
 		UsageLine: "-S [pacman opts] <packages>",
@@ -190,6 +225,8 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 	runUpdate := func(args ...string) error {
 		pacargs, _ := SplitArgs(args[1:]...)
 
+		pacargs = parseFlags(pacargs)
+
 		ac := make(chan []Pkg)
 		errc := make(chan error)
 		go func() {
@@ -215,7 +252,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 							errc <- err
 							return
 						}
-						if (UpdateVCS) && (apkg.IsVCS()) {
+						if (flags.UpdateVCS) && (apkg.IsVCS()) {
 							apl.Lock()
 							aurpkgs = append(aurpkgs, apkg)
 							apl.Unlock()
