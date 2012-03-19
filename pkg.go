@@ -425,26 +425,6 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 			return nil
 		}
 
-		if p.pkgbuild.HasDeps() {
-			for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
-				if !InLocal(dep) {
-					pkg, err := NewRemotePkg(dep)
-					if err != nil {
-						if _, ok := err.(*PkgNotFoundError); !ok {
-							// Let makepkg catch missing packages.
-							return err
-						}
-					}
-					if ap, ok := pkg.(*AURPkg); ok {
-						err := ap.Install(p, "--asdeps")
-						if err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-
 		Cprintf("[c2]==> [c1]Installing [c5]%v [c1]from the [c3]AUR[c1].[ce]\n", p.Name())
 
 		tr, err := GetSourceTar(p.Name())
@@ -465,9 +445,18 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 				}
 
 				if answer {
-					err := Edit(filepath.Join(tmp, p.Name(), "PKGBUILD"))
+					pbpath := filepath.Join(tmp, p.Name(), "PKGBUILD")
+					err := Edit(pbpath)
 					if err != nil {
 						return err
+					}
+					file, err := os.Open(pbpath)
+					if err != nil {
+						return fmt.Errorf("Unable to reload PKGBUILD for %v.", p.Name())
+					}
+					p.pkgbuild, err = ParsePkgbuild(file)
+					if err != nil {
+						return fmt.Errorf("Unable to reload PKGBUILD for %v.", p.Name())
 					}
 				} else {
 					break
@@ -497,6 +486,26 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 					}
 				} else {
 					Cprintf("[c6]warning:[ce] Can't find %v install script.\n", install)
+				}
+			}
+		}
+
+		if p.pkgbuild.HasDeps() {
+			for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
+				if !InLocal(dep) {
+					pkg, err := NewRemotePkg(dep)
+					if err != nil {
+						if _, ok := err.(*PkgNotFoundError); !ok {
+							// Let makepkg catch missing packages.
+							return err
+						}
+					}
+					if ap, ok := pkg.(*AURPkg); ok {
+						err := ap.Install(p, "--asdeps")
+						if err != nil {
+							return err
+						}
+					}
 				}
 			}
 		}
