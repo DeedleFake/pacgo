@@ -119,14 +119,14 @@ type UsageError struct {
 	Arg string
 }
 
-func (err UsageError) Error() string {
+func (err *UsageError) Error() string {
 	return fmt.Sprintf("Unknown argument: %v", err.Arg)
 }
 
 var (
 	// PrintUsageError is a special case that causes the usage to be
 	// printed without an error message.
-	PrintUsageError = UsageError{""}
+	PrintUsageError = &UsageError{""}
 )
 
 func main() {
@@ -160,7 +160,7 @@ func main() {
 	if cmd := GetCmd(os.Args[1]); cmd != nil {
 		err := cmd.Run(os.Args[1:]...)
 		if err != nil {
-			if ue, ok := err.(UsageError); ok {
+			if ue, ok := err.(*UsageError); ok {
 				if ue != PrintUsageError {
 					Cprintf("[c5]%v: [c7]error:[ce] %v\n", os.Args[1], err)
 				}

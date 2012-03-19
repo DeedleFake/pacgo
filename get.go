@@ -37,7 +37,7 @@ package names, and will skip packages when it encounters errors.
 			var pkgs []string
 			for _, arg := range args[1:] {
 				if arg[0] == '-' {
-					return UsageError{arg}
+					return &UsageError{arg}
 				} else {
 					pkgs = append(pkgs, arg)
 				}

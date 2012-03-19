@@ -92,7 +92,7 @@ type PkgNotFoundError struct {
 	PkgName string
 }
 
-func (err PkgNotFoundError) Error() string {
+func (err *PkgNotFoundError) Error() string {
 	return "Package not found: " + err.PkgName
 }
 
@@ -110,7 +110,7 @@ func NewRemotePkg(name string) (Pkg, error) {
 		return NewAURPkg(info)
 	}
 
-	return nil, PkgNotFoundError{name}
+	return nil, &PkgNotFoundError{name}
 }
 
 // InLocal returns true if the named package is installed.
@@ -430,7 +430,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 				if !InLocal(dep) {
 					pkg, err := NewRemotePkg(dep)
 					if err != nil {
-						if _, ok := err.(PkgNotFoundError); !ok {
+						if _, ok := err.(*PkgNotFoundError); !ok {
 							// Let makepkg catch missing packages.
 							return err
 						}
@@ -696,7 +696,7 @@ argloop:
 			if !InLocal(dep) {
 				pkg, err := NewRemotePkg(dep)
 				if err != nil {
-					if _, ok := err.(PkgNotFoundError); !ok {
+					if _, ok := err.(*PkgNotFoundError); !ok {
 						// Let makepkg catch missing packages.
 						return err
 					}

@@ -102,7 +102,7 @@ in the AUR. Unlike pacman, it will fail if given no arguments.
 			for _, pkgarg := range pkgargs {
 				pkg, err := NewRemotePkg(pkgarg)
 				if err != nil {
-					if pnfe, ok := err.(PkgNotFoundError); ok {
+					if pnfe, ok := err.(*PkgNotFoundError); ok {
 						Cprintf("[c7]error:[ce] package '%v' was not found\n", pnfe.PkgName)
 						continue
 					} else {
@@ -171,7 +171,7 @@ in the AUR. Unlike pacman, it will fail if given no arguments.
 		info := <-sc
 		err = <-errc
 		if err != nil {
-			if err.Error() == "No results found" {
+			if re, ok := err.(*RPCError); ok && re.Err == "No results found" {
 				return nil
 			}
 			return err
@@ -392,7 +392,7 @@ accepts no arguments.
 `,
 		Run: func(args ...string) error {
 			if len(args) != 1 {
-				return UsageError{args[1]}
+				return &UsageError{args[1]}
 			}
 
 			err := AsRootPacman(args...)
