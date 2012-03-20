@@ -452,11 +452,11 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 					}
 					file, err := os.Open(pbpath)
 					if err != nil {
-						return fmt.Errorf("Unable to reload PKGBUILD for %v.", p.Name())
+						return fmt.Errorf("Unable to reload PKGBUILD for %v: %v", p.Name(), err)
 					}
 					p.pkgbuild, err = ParsePkgbuild(file)
 					if err != nil {
-						return fmt.Errorf("Unable to reload PKGBUILD for %v.", p.Name())
+						return fmt.Errorf("Unable to reload PKGBUILD for %v: %v", p.Name(), err)
 					}
 				} else {
 					break
