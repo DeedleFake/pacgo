@@ -242,7 +242,7 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 		case InstallPkg:
 			other = append(other, p)
 		default:
-			return fmt.Errorf("Don't know how to install %v.", pkg.Name())
+			Cprintf("[c6]warning:[ce] Don't know how to install %v. Skipping.\n", pkg.Name())
 		}
 	}
 
@@ -256,7 +256,7 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 	for _, pkg := range other {
 		err := pkg.Install(nil, args...)
 		if err != nil {
-			return err
+			Cprintf("[c6]warning:[ce] Installation of %v failed (%v). Skipping.\n", pkg.Name(), err)
 		}
 	}
 
