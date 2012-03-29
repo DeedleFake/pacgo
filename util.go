@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
+	"unsafe"
 )
 
 type LineReader interface {
@@ -107,4 +109,11 @@ func SplitArgs(args ...string) (pacargs []string, pkgs []string) {
 	}
 
 	return
+}
+
+// Copy of exp/terminal's IsTerminal() function.
+func IsTerminal(fd int) bool {
+	var t syscall.Termios
+	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&t)), 0, 0, 0)
+	return err == 0
 }

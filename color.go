@@ -19,7 +19,6 @@ package main
 
 import (
 	"bufio"
-	"exp/terminal"
 	"fmt"
 	"os"
 	"strings"
@@ -40,7 +39,7 @@ var (
 // setColors sets up the colors. This is its own function so that it
 // doesn't always get run.
 func setColors() {
-	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
+	if !IsTerminal(int(os.Stdout.Fd())) {
 		return
 	}
 
