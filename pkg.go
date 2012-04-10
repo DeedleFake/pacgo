@@ -372,7 +372,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 		}
 	}
 
-	cachefile := filepath.Join(tmp,
+	genpkg := filepath.Join(tmp,
 		p.Name(),
 		fmt.Sprintf("%v-%v-%v.pkg.tar.xz",
 			p.Name(),
@@ -380,27 +380,23 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 			p.pkgbuild.LocalArch(),
 		),
 	)
-	if _, err := os.Stat(cachefile); err != nil {
-		cachefile = ""
-	} else {
-		var answer bool
+
+	var cached bool
+	if _, err := os.Stat(genpkg); !os.IsNotExist(err) {
 		if dep == nil {
-			answer, err = Caskf(true, "[c6]", "[c6]Found cached package for [c5]%v[c6]. Install?[ce]", p.Name())
+			cached, err = Caskf(true, "[c6]", "[c6]Found cached package for [c5]%v[c6]. Install?[ce]", p.Name())
 			if err != nil {
 				return err
 			}
 		} else {
-			answer, err = Caskf(true, "[c6]", "[c6]Found cached package for [c5]%v[c6]. Install as dependency for [c5]%v[c6]?[ce]", p.Name(), dep.Name())
+			cached, err = Caskf(true, "[c6]", "[c6]Found cached package for [c5]%v[c6]. Install as dependency for [c5]%v[c6]?[ce]", p.Name(), dep.Name())
 			if err != nil {
 				return err
 			}
 		}
-		if !answer {
-			cachefile = ""
-		}
 	}
 
-	if cachefile == "" {
+	if !cached {
 		if direrr != nil {
 			return direrr
 		}
@@ -458,6 +454,14 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 					if err != nil {
 						return fmt.Errorf("Unable to reload PKGBUILD for %v: %v", p.Name(), err)
 					}
+					genpkg = filepath.Join(tmp,
+						p.Name(),
+						fmt.Sprintf("%v-%v-%v.pkg.tar.xz",
+							p.Name(),
+							p.pkgbuild.VersionString(),
+							p.pkgbuild.LocalArch(),
+						),
+					)
 				} else {
 					break
 				}
@@ -517,24 +521,39 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 			return err
 		}
 	} else {
-		dir := filepath.Join(tmp, p.Name())
+		if cached {
+			err = AsRootPacman("-U", "--asdeps", genpkg)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = MakepkgIn(filepath.Join(tmp, p.Name()), "-s", "-c")
+			if err != nil {
+				return err
+			}
 
-		err = MakepkgIn(filepath.Join(tmp, p.Name()), "-s", "-c")
-		if err != nil {
-			return err
-		}
+			file, err := os.Open(filepath.Join(tmp, p.Name(), "PKGBUILD"))
+			if err != nil {
+				return fmt.Errorf("Unable to reload PKGBUILD for %v: %v", p.Name(), err)
+			}
+			p.pkgbuild, err = ParsePkgbuild(file)
+			if err != nil {
+				return fmt.Errorf("Unable to reload PKGBUILD for %v: %v", p.Name(), err)
+			}
 
-		pkgs, err := filepath.Glob(filepath.Join(dir, "*.pkg.tar.xz"))
-		if err != nil {
-			return err
-		}
-		if len(pkgs) != 1 {
-			return fmt.Errorf("Wrong number of pkgs: %v.", len(pkgs))
-		}
+			genpkg = filepath.Join(tmp,
+				p.Name(),
+				fmt.Sprintf("%v-%v-%v.pkg.tar.xz",
+					p.Name(),
+					p.pkgbuild.VersionString(),
+					p.pkgbuild.LocalArch(),
+				),
+			)
 
-		err = AsRootPacman("-U", "--asdeps", pkgs[0])
-		if err != nil {
-			return err
+			err = AsRootPacman("-U", "--asdeps", genpkg)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

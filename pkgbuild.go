@@ -427,6 +427,21 @@ func (p *Pkgbuild) LocalArch() string {
 	return ""
 }
 
+// VersionString returns the version that would be part of the
+// filename of a package generated from the PKGBUILD.
+func (p *Pkgbuild) VersionString() string {
+	var epoch string
+	if p.Epoch > 1 {
+		epoch = fmt.Sprintf("%v:", p.Epoch)
+	}
+
+	return fmt.Sprintf("%v%v-%v",
+		epoch,
+		p.Version,
+		p.Release,
+	)
+}
+
 // IsVCS returns true if p represents a VCS PKGBUILD.
 func (p *Pkgbuild) IsVCS() bool {
 	return len(p.VCS) > 0
