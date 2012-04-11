@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. /etc/bash_completion.d/pacman
+. /usr/share/bash-completion/completions/pacman
 
 _pacgo()
 {
