@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /usr/share/bash-completion/completions/pacman
+
 _pacgo()
 {
   local cur=`_get_cword`
