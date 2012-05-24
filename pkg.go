@@ -24,9 +24,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 var (
@@ -61,6 +63,10 @@ func Newer(ver1, ver2 string) (bool, error) {
 
 // SamePkg returns true if the packages are the same.
 func SamePkg(p1, p2 Pkg) bool {
+	if !reflect.TypeOf(p1).AssignableTo(reflect.TypeOf(p2)) {
+		return false
+	}
+
 	if p1.Name() != p2.Name() {
 		return false
 	}
@@ -319,6 +325,9 @@ func InfoPkgs(args []string, pkgs PkgList) error {
 // PacmanPkg represents a remote package in pacman's sync database.
 type PacmanPkg struct {
 	name string
+
+	deps    PkgList
+	gotDeps bool
 }
 
 // NewPacmanPkg returns a *PacmanPkg representing the named package
@@ -361,37 +370,62 @@ func (p *PacmanPkg) Install(dep Pkg, args ...string) error {
 	return nil
 }
 
-func (p *PacmanPkg) Deps() PkgList {
+func (p *PacmanPkg) Deps() (pl PkgList) {
+	if p.gotDeps {
+		return p.deps
+	}
+
 	lines, err := PacmanLines(true, "-Si", "--", p.Name())
 	if err != nil {
 		return nil
 	}
+
+	defer func() {
+		if len(pl) == 0 {
+			pl = nil
+		}
+
+		p.deps = pl
+		p.gotDeps = true
+	}()
 
 	for _, line := range lines {
 		match := DepsRE.FindSubmatch(line)
 		if match != nil {
 			names := bytes.Fields(match[1])
 
-			pl := make(PkgList, 0, len(names))
-			for _, name := range names {
-				name := string(name)
+			pl = make(PkgList, 0, len(names))
+			var pll sync.Mutex
 
-				pkg, err := NewRemotePkg(name)
-				if err != nil {
-					pkg, err := NewLocalPkg(name)
+			var wg sync.WaitGroup
+			for _, name := range names {
+				wg.Add(1)
+				go func(name string) {
+					defer wg.Done()
+
+					pkg, err := NewRemotePkg(name)
 					if err != nil {
-						continue
+						pkg, err := NewLocalPkg(name)
+						if err != nil {
+							return
+						}
+
+						pll.Lock()
+						pl = append(pl, pkg)
+						pll.Unlock()
+
+						return
 					}
 
+					pll.Lock()
 					pl = append(pl, pkg)
-
-					continue
-				}
-
-				pl = append(pl, pkg)
+					pll.Unlock()
+				}(string(name))
 			}
 
-			return pl
+			wg.Wait()
+
+			return
 		}
 	}
 
@@ -406,6 +440,9 @@ func (p *PacmanPkg) Info(args ...string) error {
 type AURPkg struct {
 	info     RPCResult
 	pkgbuild *Pkgbuild
+
+	deps    PkgList
+	gotDeps bool
 }
 
 // NewAURPkg returns a *AURPkg using the given info. It returns an
@@ -436,27 +473,54 @@ func (p *AURPkg) Version() (string, error) {
 	return p.info.GetInfo("Version"), nil
 }
 
-func (p *AURPkg) Deps() PkgList {
-	all := append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...)
-
-	pl := make(PkgList, 0, len(all))
-	for _, name := range all {
-		pkg, err := NewRemotePkg(name)
-		if err != nil {
-			pkg, err := NewLocalPkg(name)
-			if err != nil {
-				continue
-			}
-
-			pl = append(pl, pkg)
-
-			continue
-		}
-
-		pl = append(pl, pkg)
+func (p *AURPkg) Deps() (pl PkgList) {
+	if p.gotDeps {
+		return p.deps
 	}
 
-	return pl
+	defer func() {
+		if len(pl) == 0 {
+			pl = nil
+		}
+
+		p.deps = pl
+		p.gotDeps = true
+	}()
+
+	all := append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...)
+
+	pl = make(PkgList, 0, len(all))
+	var pll sync.Mutex
+
+	var wg sync.WaitGroup
+	for _, name := range all {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+
+			pkg, err := NewRemotePkg(name)
+			if err != nil {
+				pkg, err := NewLocalPkg(name)
+				if err != nil {
+					return
+				}
+
+				pll.Lock()
+				pl = append(pl, pkg)
+				pll.Unlock()
+
+				return
+			}
+
+			pll.Lock()
+			pl = append(pl, pkg)
+			pll.Unlock()
+		}(name)
+	}
+
+	wg.Wait()
+
+	return
 }
 
 func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
@@ -704,6 +768,9 @@ func (p *AURPkg) IsVCS() bool {
 // LocalPkg represents an installed package.
 type LocalPkg struct {
 	name string
+
+	deps    PkgList
+	gotDeps bool
 }
 
 // NewLocalPkg returns a *LocalPkg representing the named package and
@@ -758,37 +825,62 @@ func (p *LocalPkg) Version() (string, error) {
 	return string(bytes.TrimSpace(ver[1])), nil
 }
 
-func (p *LocalPkg) Deps() PkgList {
+func (p *LocalPkg) Deps() (pl PkgList) {
+	if p.gotDeps {
+		return p.deps
+	}
+
 	lines, err := PacmanLines(true, "-Qi", "--", p.Name())
 	if err != nil {
 		return nil
 	}
+
+	defer func() {
+		if len(pl) == 0 {
+			pl = nil
+		}
+
+		p.deps = pl
+		p.gotDeps = true
+	}()
 
 	for _, line := range lines {
 		match := DepsRE.FindSubmatch(line)
 		if match != nil {
 			names := bytes.Fields(match[1])
 
-			pl := make(PkgList, 0, len(names))
-			for _, name := range names {
-				name := string(name)
+			pl = make(PkgList, 0, len(names))
+			var pll sync.Mutex
 
-				pkg, err := NewRemotePkg(name)
-				if err != nil {
-					pkg, err := NewLocalPkg(name)
+			var wg sync.WaitGroup
+			for _, name := range names {
+				wg.Add(1)
+				go func(name string) {
+					defer wg.Done()
+
+					pkg, err := NewRemotePkg(name)
 					if err != nil {
-						continue
+						pkg, err := NewLocalPkg(name)
+						if err != nil {
+							return
+						}
+
+						pll.Lock()
+						pl = append(pl, pkg)
+						pll.Unlock()
+
+						return
 					}
 
+					pll.Lock()
 					pl = append(pl, pkg)
-
-					continue
-				}
-
-				pl = append(pl, pkg)
+					pll.Unlock()
+				}(string(name))
 			}
 
-			return pl
+			wg.Wait()
+
+			return
 		}
 	}
 
@@ -807,6 +899,9 @@ func (p *LocalPkg) Info(args ...string) error {
 // PkgbuildPkg represents a package that hasn't been built yet.
 type PkgbuildPkg struct {
 	pkgbuild *Pkgbuild
+
+	deps    PkgList
+	gotDeps bool
 }
 
 // NewPkgbuildPkg returns a *PkgbuildPkg representing the given
@@ -830,27 +925,54 @@ func (p *PkgbuildPkg) Version() (string, error) {
 	return fmt.Sprintf("%v%v-%v", epoch, p.pkgbuild.Version, p.pkgbuild.Release), nil
 }
 
-func (p *PkgbuildPkg) Deps() PkgList {
-	all := append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...)
-
-	pl := make(PkgList, 0, len(all))
-	for _, name := range all {
-		pkg, err := NewRemotePkg(name)
-		if err != nil {
-			pkg, err := NewLocalPkg(name)
-			if err != nil {
-				continue
-			}
-
-			pl = append(pl, pkg)
-
-			continue
-		}
-
-		pl = append(pl, pkg)
+func (p *PkgbuildPkg) Deps() (pl PkgList) {
+	if p.gotDeps {
+		return p.deps
 	}
 
-	return pl
+	defer func() {
+		if len(pl) == 0 {
+			pl = nil
+		}
+
+		p.deps = pl
+		p.gotDeps = true
+	}()
+
+	all := append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...)
+
+	pl = make(PkgList, 0, len(all))
+	var pll sync.Mutex
+
+	var wg sync.WaitGroup
+	for _, name := range all {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+
+			pkg, err := NewRemotePkg(name)
+			if err != nil {
+				pkg, err := NewLocalPkg(name)
+				if err != nil {
+					return
+				}
+
+				pll.Lock()
+				pl = append(pl, pkg)
+				pll.Unlock()
+
+				return
+			}
+
+			pll.Lock()
+			pl = append(pl, pkg)
+			pll.Unlock()
+		}(name)
+	}
+
+	wg.Wait()
+
+	return
 }
 
 func (p *PkgbuildPkg) Install(dep Pkg, args ...string) error {
