@@ -557,8 +557,6 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 		}
 	}
 
-	os.RemoveAll(tmp)
-
 	return nil
 }
 
