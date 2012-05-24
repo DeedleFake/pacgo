@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -32,6 +33,10 @@ var (
 	// A regular expression used to get version information out of the
 	// outputs of the pacman -Qi and pacman -Si commands.
 	VersionRE = regexp.MustCompile(`Version\s+:\s+(.*)`)
+
+	// A regular expression used to get the dependency list from the
+	// outputs of the pacman -Qi and pacman -Si commands.
+	DepsRE = regexp.MustCompile(`Depends\sOn\s\+:\s+(.*)`)
 )
 
 // Newer returns true, nil if ver1 is greater than ver2, else it
@@ -54,6 +59,21 @@ func Newer(ver1, ver2 string) (bool, error) {
 	panic("Bad vercmp output: " + string(out))
 }
 
+// SamePkg returns true if the packages are the same.
+func SamePkg(p1, p2 Pkg) bool {
+	if p1.Name() != p2.Name() {
+		return false
+	}
+
+	v1, _ := p1.Version()
+	v2, _ := p2.Version()
+	if v1 != v2 {
+		return false
+	}
+
+	return true
+}
+
 // Pkg represents a pacman package. This doesn't necessarily have to
 // be a local package, or even a real package.
 type Pkg interface {
@@ -63,6 +83,11 @@ type Pkg interface {
 	// Version returns the full version string of the package and nil,
 	// or "" and an error, if any.
 	Version() (string, error)
+
+	// Deps returns a list of the package's dependencies. It simply
+	// ignores packages that it can't find. For this reason, it may
+	// return a non-nil slice with a length of zero.
+	Deps() PkgList
 }
 
 // InstallPkg represents a Pkg that can be installed.
@@ -150,7 +175,7 @@ func InAUR(name string) (RPCResult, bool) {
 // specified or nil if none are found.
 //
 // TODO: This doesn't work at all. It needs to be completely redone.
-//func Provides(pkg string) []Pkg {
+//func Provides(pkg string) PkgList {
 //	out, err := PacmanOutput("-Ssq", "^"+pkg+"$")
 //	if err != nil {
 //		return nil
@@ -159,7 +184,7 @@ func InAUR(name string) (RPCResult, bool) {
 //
 //	lines := bytes.Split(out, []byte{'\n'})
 //
-//	pkgs := make([]Pkg, 0, len(lines))
+//	pkgs := make(PkgList, 0, len(lines))
 //	for _, line := range lines {
 //		name := string(line)
 //		if InPacman(name) {
@@ -232,9 +257,9 @@ func IsDep(name string) (bool, error) {
 
 // InstallPkgs installs the given pkgs using the given args. It
 // returns an error, if any.
-func InstallPkgs(args []string, pkgs []Pkg) error {
+func InstallPkgs(args []string, pkgs PkgList) error {
 	var pacpkgs []string
-	var other []InstallPkg
+	var other PkgList
 	for _, pkg := range pkgs {
 		switch p := pkg.(type) {
 		case *PacmanPkg:
@@ -246,6 +271,12 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 		}
 	}
 
+	sortDone := make(chan bool)
+	go func() {
+		sort.Sort(other)
+		sortDone <- true
+	}()
+
 	if pacpkgs != nil {
 		err := AsRootPacman(append([]string{"-S"}, append(args, pacpkgs...)...)...)
 		if err != nil {
@@ -253,8 +284,10 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 		}
 	}
 
+	<-sortDone
+
 	for _, pkg := range other {
-		err := pkg.Install(nil, args...)
+		err := pkg.(InstallPkg).Install(nil, args...)
 		if err != nil {
 			Cprintf("[c6]warning:[ce] Installation of %v failed (%v). Skipping.\n", pkg.Name(), err)
 		}
@@ -265,7 +298,7 @@ func InstallPkgs(args []string, pkgs []Pkg) error {
 
 // InfoPkgs prints the info for the given pkgs, using the given args.
 // It returns an error, if any.
-func InfoPkgs(args []string, pkgs []Pkg) error {
+func InfoPkgs(args []string, pkgs PkgList) error {
 	for _, pkg := range pkgs {
 		if ip, ok := pkg.(InfoPkg); ok {
 			err := ip.Info(args...)
@@ -323,6 +356,43 @@ func (p *PacmanPkg) Install(dep Pkg, args ...string) error {
 	return nil
 }
 
+func (p *PacmanPkg) Deps() PkgList {
+	lines, err := PacmanLines(true, "-Si", "--", p.Name())
+	if err != nil {
+		return nil
+	}
+
+	for _, line := range lines {
+		match := DepsRE.FindSubmatch(line)
+		if match != nil {
+			names := bytes.Fields(match[1])
+
+			pl := make(PkgList, 0, len(names))
+			for _, name := range names {
+				name := string(name)
+
+				pkg, err := NewRemotePkg(name)
+				if err != nil {
+					pkg, err := NewLocalPkg(name)
+					if err != nil {
+						continue
+					}
+
+					pl = append(pl, pkg)
+
+					continue
+				}
+
+				pl = append(pl, pkg)
+			}
+
+			return pl
+		}
+	}
+
+	return nil
+}
+
 func (p *PacmanPkg) Info(args ...string) error {
 	return Pacman(append([]string{"-Si"}, append(args, p.Name())...)...)
 }
@@ -359,6 +429,29 @@ func (p *AURPkg) Name() string {
 
 func (p *AURPkg) Version() (string, error) {
 	return p.info.GetInfo("Version"), nil
+}
+
+func (p *AURPkg) Deps() PkgList {
+	all := append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...)
+
+	pl := make(PkgList, 0, len(all))
+	for _, name := range all {
+		pkg, err := NewRemotePkg(name)
+		if err != nil {
+			pkg, err := NewLocalPkg(name)
+			if err != nil {
+				continue
+			}
+
+			pl = append(pl, pkg)
+
+			continue
+		}
+
+		pl = append(pl, pkg)
+	}
+
+	return pl
 }
 
 func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
@@ -666,6 +759,43 @@ func (p *LocalPkg) Version() (string, error) {
 	return string(bytes.TrimSpace(ver[1])), nil
 }
 
+func (p *LocalPkg) Deps() PkgList {
+	lines, err := PacmanLines(true, "-Qi", "--", p.Name())
+	if err != nil {
+		return nil
+	}
+
+	for _, line := range lines {
+		match := DepsRE.FindSubmatch(line)
+		if match != nil {
+			names := bytes.Fields(match[1])
+
+			pl := make(PkgList, 0, len(names))
+			for _, name := range names {
+				name := string(name)
+
+				pkg, err := NewRemotePkg(name)
+				if err != nil {
+					pkg, err := NewLocalPkg(name)
+					if err != nil {
+						continue
+					}
+
+					pl = append(pl, pkg)
+
+					continue
+				}
+
+				pl = append(pl, pkg)
+			}
+
+			return pl
+		}
+	}
+
+	return nil
+}
+
 func (p *LocalPkg) Info(args ...string) error {
 	err := Pacman(append(append([]string{"-Qi"}, args...), p.Name())...)
 	if err != nil {
@@ -699,6 +829,29 @@ func (p *PkgbuildPkg) Version() (string, error) {
 	}
 
 	return fmt.Sprintf("%v%v-%v", epoch, p.pkgbuild.Version, p.pkgbuild.Release), nil
+}
+
+func (p *PkgbuildPkg) Deps() PkgList {
+	all := append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...)
+
+	pl := make(PkgList, 0, len(all))
+	for _, name := range all {
+		pkg, err := NewRemotePkg(name)
+		if err != nil {
+			pkg, err := NewLocalPkg(name)
+			if err != nil {
+				continue
+			}
+
+			pl = append(pl, pkg)
+
+			continue
+		}
+
+		pl = append(pl, pkg)
+	}
+
+	return pl
 }
 
 func (p *PkgbuildPkg) Install(dep Pkg, args ...string) error {

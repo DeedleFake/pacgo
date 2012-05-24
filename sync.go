@@ -73,7 +73,7 @@ through to pacman.
 		Run: func(args ...string) error {
 			args, pkgargs := SplitArgs(args[1:]...)
 
-			pkgs := make([]Pkg, 0, len(pkgargs))
+			pkgs := make(PkgList, 0, len(pkgargs))
 			for _, pkgarg := range pkgargs {
 				pkg, err := NewRemotePkg(pkgarg)
 				if err != nil {
@@ -227,7 +227,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 
 		pacargs = parseFlags(pacargs)
 
-		ac := make(chan []Pkg)
+		ac := make(chan PkgList)
 		errc := make(chan error)
 		go func() {
 			fpkgs, err := ListForeignPkgs()
@@ -237,7 +237,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 				return
 			}
 
-			var aurpkgs []Pkg
+			var aurpkgs PkgList
 			var apl sync.Mutex
 			var wg sync.WaitGroup
 			for _, pkg := range fpkgs {
