@@ -210,6 +210,8 @@ func main() {
 			done <- 2
 			return
 		}
+
+		done <- 0
 	}()
 
 	select {
