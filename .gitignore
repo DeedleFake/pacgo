@@ -6,3 +6,5 @@
 *.swp
 *.exe
 pacgo
+
+*.pprof

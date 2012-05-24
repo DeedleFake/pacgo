@@ -20,7 +20,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime/pprof"
 	"text/tabwriter"
 )
 
@@ -130,6 +132,29 @@ var (
 )
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			switch r := r.(type) {
+			case int:
+				os.Exit(r)
+			}
+		}
+	}()
+
+	if filepath.Base(os.Args[0]) == "pacgo.pprof" {
+		file, err := os.Create(filepath.Join(os.TempDir(), "pacgo.pprof"))
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		err = pprof.StartCPUProfile(file)
+		if err != nil {
+			panic(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	if os.Getuid() == 0 {
 		Cprintf("[c7]error:[ce] Can't run as root.\n")
 		os.Exit(1)
@@ -147,7 +172,7 @@ func main() {
 		} else {
 			Usage("")
 		}
-		os.Exit(0)
+		return
 	}
 
 	TmpDir = filepath.Join(os.TempDir(), fmt.Sprintf("%v-%v", filepath.Base(os.Args[0]), os.Getuid()))
@@ -157,23 +182,43 @@ func main() {
 		os.Exit(1)
 	}
 
-	if cmd := GetCmd(os.Args[1]); cmd != nil {
-		err := cmd.Run(os.Args[1:]...)
-		if err != nil {
-			if ue, ok := err.(*UsageError); ok {
-				if ue != PrintUsageError {
+	sig := make(chan os.Signal)
+	signal.Notify(sig, os.Interrupt)
+
+	done := make(chan int)
+	go func() {
+		if cmd := GetCmd(os.Args[1]); cmd != nil {
+			err := cmd.Run(os.Args[1:]...)
+			if err != nil {
+				if ue, ok := err.(*UsageError); ok {
+					if ue != PrintUsageError {
+						Cprintf("[c5]%v: [c7]error:[ce] %v\n", os.Args[1], err)
+					}
+					Usage(os.Args[1])
+					os.Exit(2)
+				} else {
 					Cprintf("[c5]%v: [c7]error:[ce] %v\n", os.Args[1], err)
 				}
-				Usage(os.Args[1])
-				os.Exit(2)
-			} else {
-				Cprintf("[c5]%v: [c7]error:[ce] %v\n", os.Args[1], err)
+
+				done <- 1
+				return
 			}
-			os.Exit(1)
+		} else {
+			Cprintf("[c7]error:[ce] No such command: [c5]%v[ce]\n", os.Args[1])
+			Usage("")
+
+			done <- 2
+			return
 		}
-	} else {
-		Cprintf("[c7]error:[ce] No such command: [c5]%v[ce]\n", os.Args[1])
-		Usage("")
-		os.Exit(2)
+	}()
+
+	select {
+	case got := <-sig:
+		Cprintf("[c7]error:[ce] Caught [c5]%v[ce]: Exiting.\n", got)
+		panic(1)
+	case ret := <-done:
+		if ret != 0 {
+			panic(ret)
+		}
 	}
 }
