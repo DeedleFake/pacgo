@@ -12,3 +12,5 @@ Support --ignore and related options in pacman.conf.
 Add support for checkdepends, based on the setting in makepkg.conf.
 
 Support custom makepkg.conf.
+
+Refactor the different package types into their own files.

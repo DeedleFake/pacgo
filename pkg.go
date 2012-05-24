@@ -87,6 +87,11 @@ type Pkg interface {
 	// Deps returns a list of the package's dependencies. It simply
 	// ignores packages that it can't find. For this reason, it may
 	// return a non-nil slice with a length of zero.
+	//
+	// Note that for installable packages the results of this method
+	// are the packages that need to be installed before the package
+	// can be installed. For example, for a *AURPkg, this is a
+	// combination of both depends and makedeps.
 	Deps() PkgList
 }
 
@@ -588,20 +593,14 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 		}
 
 		if p.pkgbuild.HasDeps() {
-			for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
-				if !InLocal(dep) {
-					pkg, err := NewRemotePkg(dep)
+			deps := p.Deps()
+			sort.Sort(deps)
+
+			for _, dep := range deps {
+				if ap, ok := dep.(*AURPkg); ok {
+					err := ap.Install(p, "--asdeps")
 					if err != nil {
-						if _, ok := err.(*PkgNotFoundError); !ok {
-							// Let makepkg catch missing packages.
-							return err
-						}
-					}
-					if ap, ok := pkg.(*AURPkg); ok {
-						err := ap.Install(p, "--asdeps")
-						if err != nil {
-							return err
-						}
+						return err
 					}
 				}
 			}
@@ -871,20 +870,14 @@ argloop:
 
 	// Just let makepkg fail if dependencies are missing.
 	if depauth && p.pkgbuild.HasDeps() {
-		for _, dep := range append(p.pkgbuild.Deps, p.pkgbuild.MakeDeps...) {
-			if !InLocal(dep) {
-				pkg, err := NewRemotePkg(dep)
+		deps := p.Deps()
+		sort.Sort(deps)
+
+		for _, dep := range deps {
+			if ap, ok := dep.(*AURPkg); ok {
+				err := ap.Install(p, "--asdeps")
 				if err != nil {
-					if _, ok := err.(*PkgNotFoundError); !ok {
-						// Let makepkg catch missing packages.
-						return err
-					}
-				}
-				if ap, ok := pkg.(*AURPkg); ok {
-					err := ap.Install(p, "--asdeps")
-					if err != nil {
-						return err
-					}
+					return err
 				}
 			}
 		}
