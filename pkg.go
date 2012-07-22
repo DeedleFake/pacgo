@@ -662,9 +662,11 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 
 			for _, dep := range deps {
 				if ap, ok := dep.(*AURPkg); ok {
-					err := ap.Install(p, "--asdeps")
-					if err != nil {
-						return err
+					if !InLocal(ap.Name()) {
+						err := ap.Install(p, "--asdeps")
+						if err != nil {
+							return err
+						}
 					}
 				}
 			}
