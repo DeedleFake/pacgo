@@ -80,6 +80,17 @@ func SamePkg(p1, p2 Pkg) bool {
 	return true
 }
 
+// cleanName strips version information from the name of a package.
+func cleanName(name string) string {
+	for i := range name {
+		if name[i] == '>' {
+			return name[:i]
+		}
+	}
+
+	return name
+}
+
 // Pkg represents a pacman package. This doesn't necessarily have to
 // be a local package, or even a real package.
 type Pkg interface {

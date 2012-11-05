@@ -44,8 +44,9 @@ func PKGURL(pkg, path string) string {
 
 // RPCResult represents a response from the AUR's RPC system.
 type RPCResult struct {
-	Type    string
-	Results interface{}
+	Type        string
+	ResultCount int
+	Results     interface{}
 }
 
 // AURInfo retrieves the information about a specific package from
@@ -68,6 +69,15 @@ func AURInfo(name string) (info RPCResult, err error) {
 			Type: "info",
 			Arg:  name,
 			Err:  info.Results.(string),
+		}
+		return
+	}
+
+	if info.ResultCount == 0 {
+		err = &RPCError{
+			Type: "info",
+			Arg:  name,
+			Err:  "",
 		}
 		return
 	}
