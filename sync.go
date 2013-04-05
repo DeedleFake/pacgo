@@ -324,7 +324,7 @@ only lists their names. Like -Ss, it will fail if given no arguments.
 			Cprintf(" %v", pkg.Name())
 		}
 		Cprintf("\n\n")
-		answer, err := Caskf(true, "", "Proceed with installation?")
+		answer, err := Caskf(true, "", ":: Proceed with installation?")
 		if err != nil {
 			return err
 		}
@@ -402,7 +402,7 @@ accepts no arguments.
 
 			fmt.Println()
 			Cprintf("[c1]TmpDir:[ce] %v\n", TmpDir)
-			answer, err := Caskf(false, "", "Do you want to remove TmpDir?")
+			answer, err := Caskf(false, "", ":: Do you want to remove TmpDir?")
 			if err != nil {
 				return err
 			}
