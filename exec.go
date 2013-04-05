@@ -43,18 +43,11 @@ var (
 func init() {
 	var err error
 
-	// Find pacman, trying pacman-color first, and then falling
-	// back to normal pacman.
-	PacmanPath, err = exec.LookPath("pacman-color")
+	// Find pacman.
+	PacmanPath, err = exec.LookPath("pacman")
 	if err != nil {
-		PacmanPath, err = exec.LookPath("pacman")
-		if err != nil {
-			Cprintf("[c7]error:[ce] Could not find pacman.\n")
-			os.Exit(1)
-		}
-	} else {
-		// Only set the colors if pacman will have colored output.
-		setColors()
+		Cprintf("[c7]error:[ce] Could not find pacman.\n")
+		os.Exit(1)
 	}
 
 	// Find makepkg.

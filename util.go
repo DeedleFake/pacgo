@@ -117,3 +117,30 @@ func IsTerminal(fd int) bool {
 	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&t)), 0, 0, 0)
 	return err == 0
 }
+
+// CheckConfOption checks if a given option is set in pacman.conf.
+//
+// TODO: Add support for configuration files that aren't located at
+//				/etc/pacman.conf.
+func CheckConfOption(opt string) (bool, error) {
+	file, err := os.Open("/etc/pacman.conf")
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	lines, err := ReadLines(file, true)
+	if err != nil {
+		return false, err
+	}
+
+	optS := []byte(opt)
+
+	for _, line := range lines {
+		if bytes.Equal(line, optS) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}

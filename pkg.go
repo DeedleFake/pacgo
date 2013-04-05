@@ -557,12 +557,12 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 	var cached bool
 	if _, err := os.Stat(genpkg); !os.IsNotExist(err) {
 		if dep == nil {
-			cached, err = Caskf(true, "[c6]", ":: [c6]Found cached package for [c5]%v[c6]. Install?[ce]", p.Name())
+			cached, err = Caskf(true, "[c1]", "[c5]:: [c1]Found cached package for [c5]%v[c1]. Install?[ce]", p.Name())
 			if err != nil {
 				return err
 			}
 		} else {
-			cached, err = Caskf(true, "[c6]", ":: [c6]Found cached package for [c5]%v[c6]. Install as dependency for [c5]%v[c6]?[ce]", p.Name(), dep.Name())
+			cached, err = Caskf(true, "[c1]", "[c5]:: [c1]Found cached package for [c5]%v[c1]. Install as dependency for [c5]%v[c1]?[ce]", p.Name(), dep.Name())
 			if err != nil {
 				return err
 			}
@@ -576,12 +576,12 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 
 		var answer bool
 		if dep == nil {
-			answer, err = Caskf(true, "[c6]", ":: [c6]Install [c5]%v[c6]?[ce]", p.Name())
+			answer, err = Caskf(true, "[c1]", "[c5]:: [c1]Install [c5]%v[c1]?[ce]", p.Name())
 			if err != nil {
 				return
 			}
 		} else {
-			answer, err = Caskf(true, "[c6]", ":: [c6]Install [c5]%v [c6]as a dependency for [c5]%v[c6]?[ce]",
+			answer, err = Caskf(true, "[c1]", "[c5]:: [c1]Install [c5]%v [c1]as a dependency for [c5]%v[c1]?[ce]",
 				p.Name(),
 				dep.Name(),
 			)
@@ -608,7 +608,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 
 		if EditPath != "" {
 			for {
-				answer, err := Caskf(false, "[c6]", ":: [c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
+				answer, err := Caskf(false, "[c1]", "[c5]:: [c1]Edit [c5]PKGBUILD [c1]using [c5]%v?[ce]", filepath.Base(EditPath))
 				if err != nil {
 					return err
 				}
@@ -644,7 +644,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 				install := filepath.Join(tmp, p.Name(), p.pkgbuild.Install)
 				if _, err := os.Stat(install); err == nil {
 					for {
-						answer, err := Caskf(false, "[c6]", ":: [c6]Edit [c5]%v [c6]using [c5]%v?[ce]",
+						answer, err := Caskf(false, "[c1]", "[c5]:: [c1]Edit [c5]%v [c1]using [c5]%v?[ce]",
 							p.pkgbuild.Install,
 							filepath.Base(EditPath),
 						)

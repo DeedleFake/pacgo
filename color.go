@@ -36,10 +36,13 @@ var (
 	ColorEnd string // None
 )
 
-// setColors sets up the colors. This is its own function so that it
-// doesn't always get run.
-func setColors() {
+func init() {
 	if !IsTerminal(int(os.Stdout.Fd())) {
+		return
+	}
+
+	color, err := CheckConfOption("Color")
+	if !color || (err != nil) {
 		return
 	}
 
