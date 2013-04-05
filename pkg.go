@@ -608,7 +608,7 @@ func (p *AURPkg) Install(dep Pkg, args ...string) (err error) {
 
 		if EditPath != "" {
 			for {
-				answer, err := Caskf(false, "[c6]", "[c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
+				answer, err := Caskf(false, "[c6]", ":: [c6]Edit [c5]PKGBUILD [c6]using [c5]%v?[ce]", filepath.Base(EditPath))
 				if err != nil {
 					return err
 				}
